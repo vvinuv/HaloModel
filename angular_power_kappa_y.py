@@ -5,7 +5,7 @@ import mass_function
 import convergence 
 
 
-class onehalo:
+class HaloKappaSZ:
     '''
         Eq. 3.1 of Ma & Van Waerbeke 
     '''
