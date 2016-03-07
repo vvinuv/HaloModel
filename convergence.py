@@ -66,7 +66,7 @@ class kappa_l():
 
         return k_l
 
-class y_l() 
+class sz_l() 
     '''
     '''
     def __init__(self):
@@ -79,6 +79,11 @@ class y_l()
         self.csq = 9.e16 #m^2/s^2
         self.msolar = 1.9889e30
         self.constant = self.sigma_T / self.me / self.msolar / self.csq #s^2/solar
+
+        self.cosmo_dict = defaults.default_cosmo_dict
+        self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
+        self.ells = (self.cosmo.comoving_distance()/(1. + lens_redshif)/rs)
+        self.concentration = (5.72 / (1. + lens_redshif)**0.71) * (self.mvir / 1e14)**-0.081
 
     def up_profile():
         '''
@@ -94,11 +99,39 @@ class y_l()
         p_x = P0 / (c500 * x)**gamma / (1. + (c500 * x)**alpha)**bga
         return p_x
 
+    def battaglia_P0(self, z):
+        return 18.1 * (M200 / 1e14)**0.154 * (1. + z)**-0.758
 
 
+    def battaglia_xc(self, z):
+        return 0.497 * (M200 / 1e14)**-0.00865 * (1. + z)**0.731
 
+
+    def battaglia_beta(self, z):
+        return 4.35 * (M200 / 1e14)**0.0393 * (1. + z)**0.415
+
+
+    def battaglia_progile(self, x, M200, R200):
+        '''
+        Using Battaglia et al (2012)
+        ''' 
+        G = 4.3e-9 #Mpc Mo^-1 (km/s)^2 
+        alpha = 1.0 
+        gamma = -0.3
+        P200 = 200. * self.cosmo.rho_crit() * self.cosmo_dict["omega_b0"] / self.cosmo_dict["omega_m0"] * G * M200 / R200
+        p_e = P200 * (x / self.battaglia_xc(lens_redshift))**gamma * (1. + (x / self.battaglia_xc(lens_redshift)))**(-1*self.battaglia_beta(lens_redshift))
+        return p_e
+
+    def battaglia_integral(self, x, M200, R200):
+        '''
+        '''
+        return x*x*np.sin(self.ell * x / self.ells) / (self.ell * x / self.ells) * battaglia_progile(x, M200, R200)
+
+    def y_l(self, ): 
+        '''
+        Eq. 3.3 of Ma & Van Waerbeke 
+        '''
         
-
-
+        y_l = self.constants * 4. * np.pi*self.rs/self.ells/self.ells * integrate.quad(self.battaglia_integral, 0, 2, args=(M200, R200))
 
 
