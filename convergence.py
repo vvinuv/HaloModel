@@ -10,10 +10,10 @@ class kappa_l():
     '''
     Van Waerbeke et 2014
     '''
-    def __init__(self, lens_redshift, r_vir, rs, ell):
+    def __init__(self, lens_redshift, r_vir, concentration, ell):
         self.lens_redshift = lens_redshift
         self.r_vir = r_vir
-        self.rs = rs
+        self.concentration = concentration
         self.ell = ell
 
         self.cosmo_dict = defaults.default_cosmo_dict
@@ -69,10 +69,11 @@ class kappa_l():
 class sz_l() 
     '''
     '''
-    def __init__(self):
+    def __init__(self, lens_redshift, mvir, rs):
         '''
         '''
         self.lens_redshift = lens_redshift
+        self.mvir = mvir
         self.rs = rs
         self.sigma_T = 6.65e-29 #m^2
         self.me = 9.12e-31 #kg
@@ -84,6 +85,7 @@ class sz_l()
         self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
         self.ells = (self.cosmo.comoving_distance()/(1. + lens_redshif)/rs)
         self.concentration = (5.72 / (1. + lens_redshif)**0.71) * (self.mvir / 1e14)**-0.081
+        self.rvir = self.concentration * self.rs
 
     def up_profile():
         '''
@@ -133,5 +135,5 @@ class sz_l()
         '''
         
         y_l = self.constants * 4. * np.pi*self.rs/self.ells/self.ells * integrate.quad(self.battaglia_integral, 0, 2, args=(M200, R200))
-
+        return y_l
 
