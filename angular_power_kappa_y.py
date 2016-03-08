@@ -82,9 +82,9 @@ class HaloKappaSZ:
         about this assumption  
         '''
         masss_function, Rvir, conc = self.mass_func(m)
-        kappa_l = convergence.kappa_l(z, m, Rvir, conc, ell)
-        y_l = convergence.sz_l(z, m, Rvir, conc, ell)
-        return masss_function * kappa_l * y_l
+        kappa_l = convergence.kappa_l(z, ell)
+        y_l = convergence.sz_l(z, ell)
+        return masss_function * kappa_l.k_l(m) * y_l
 
     def integrate_redshift(self, z, ell):
         ''' 
@@ -120,8 +120,8 @@ class HaloKappaSZ:
         nu = self.ps_cosmo.nu_m(m)
         bias = self.halo_bias(nu)
         masss_function = self.mass_func(m)
-        kappa_l = convergence.kappa_l(m, z)
-        return masss_function * bias * kappa_l 
+        kappa_l = convergence.kappa_l(z, ell)
+        return masss_function * bias * kappa_l.k_l(m) 
 
     def integrate_mass_func_y(self, m, z):
         '''
@@ -130,7 +130,7 @@ class HaloKappaSZ:
         nu = self.ps_cosmo.nu_m(m)
         bias = self.halo_bias(nu)
         mass_function = self.mass_func(m)
-        y_l = convergence.sz_l(m, z)
+        y_l = convergence.sz_l(z, ell)
         return masss_function * bias * y_l 
 
     def integrate_redshift_linear_power(self, z, ell):
