@@ -3,8 +3,8 @@ import numpy as np
 import cosmology
 from scipy import integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
-import defaults
-
+import config
+from nfw import NFW
 
 class kappa_l():
     '''
@@ -14,22 +14,8 @@ class kappa_l():
         self.lens_redshift = lens_redshift
         self.ell = ell
 
-        self.cosmo_dict = defaults.default_cosmo_dict
+        self.cosmo_dict = config.default_cosmo_dict
         self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
-
-    def Delta_c(self):
-        '''
-        This is the same function on nfw.py
-        '''
-        x = self.cosmo.omega_m() - 1.
-        if 1:
-            #This will return if the omega curvature is zero. It is ~1e-4 so
-            #this may work
-            return 18 * np.pi * np.pi + 82. * x - 39. * x * x
-        elif 0:
-            return 18 * np.pi * np.pi + 62. * x - 32. * x * x
-        else:
-            raise ValueError('Given cosmology is not implemented')
 
     def concentration(self, Mvir):
         '''Ma & Van Waerbeke Eq 3.4 
@@ -37,12 +23,6 @@ class kappa_l():
            this in unitless
         '''
         return 5.72 / (1. + self.redshift)**0.71 * (Mvir * self.cosmo_dict['h'] / 1e14)**-0.081
-
-    def R_virial(self, Mvir):
-        '''
-        Eq. 23 of Dan Coe (nfw_profile.pdf)
-        '''
-        return (3. * Mvir / 4. / np.pi / self.cosmo.rho_crit() / Delta_c())**(1. / 3.)
 
     def source_dist(self, source_redshifts):
         '''
@@ -69,7 +49,7 @@ class kappa_l():
         w' = source angular 
         g(w) = int_w^wH(p(w') fK(w'-w) / fK(w'))
         '''
-        gcosmo_dict = defaults.default_cosmo_dict
+        gcosmo_dict = config.default_cosmo_dict
         gcosmo = cosmology.SingleEpoch(source_redshift, cosmo_dict=gcosmo_dict)
         return source_dist_interpolation(source_redshift) * (cosmo.angular_diameter_distance(source_redshift) - lens_angular_diameter_distance) / cosmo.angular_diameter_distance(source_redshift)      
 
@@ -82,22 +62,17 @@ class kappa_l():
 
         Unit of W(w) = h Mpc^(-1)
         '''
-        w_k = 1.5 * self.cosmo_dict["omega_m0"] * self.cosmo.H0 * self.cosmo.H0 * self.cosmo.angular_diameter_distance(self.lens_redshift) * (1. + lens_redshift) * integrate.quad(g, self.cosmo.angular_diameter_distance(self.lens_redshift), 6000, args=(lens_angular_diameter_distance))
+        w_k = 1.5 * self.cosmo_dict["omega_m0"] * self.cosmo.H0 * self.cosmo.H0 * self.cosmo.angular_diameter_distance(self.lens_redshift) * (1. + lens_redshift) * integrate.quad(g, self.cosmo.angular_diameter_distance(self.lens_redshift), 6000, args=(lens_angular_diameter_distance))[0]
         return w_k
 
-    def nfw_profile(self, r, mass):
+    def nfw_profile(self, r):
         '''
         Coe 2010 Eqs. 33-38
         '''
-        Delta_c = self.Delta_c()
-        conc = self.concentration(mass)
-        Rvir = self.R_virial(mass)
-        rs = Rvir / conc
-        rho_s = Delta_c * conc**3 / 3. / (np.log(1. + conc) - conc / (1. + conc)) 
-        return Delta_c * self.cosmo.rho_crit() / (r/rs) / (1. + r/rs)**2
+        return nfw.rho_s / (r/rs) / (1. + r/rs)**2
 
     def nfw_integrate(self, r, mass):
-        return 4 * np.pi * r * r * np.sin(self.ell * r / self.cosmo.comoving_distance(self.lens_redshift)) * self.nfw_profile(r, mass) / (self.ell * r / self.cosmo.comoving_distance(self.lens_redshift))
+        return 4 * np.pi * r * r * np.sin(self.ell * r / self.cosmo.comoving_distance(self.lens_redshift)) * self.nfw_profile(r) / (self.ell * r / self.cosmo.comoving_distance(self.lens_redshift))
 
     def kappa_l(self, mass):
         '''
@@ -105,33 +80,100 @@ class kappa_l():
         k_l = (W(z)/Chi^2 rho_bar) int_0_r_vir(dr 4pi r^2 sin(l r/Chi) / (lr/Chi) * rho(r, M,z))
         '''
         Rvir = self.R_virial(mass)
-        k_l = self.w_kappa() / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.rho_bar(self.lens_redshift) * integrate.quad(self.nfw_integrate, 0, self.r_vir, args=(mass))
+        k_l = self.w_kappa() / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.rho_bar(self.lens_redshift) * integrate.quad(self.nfw_integrate, 0, self.r_vir, args=(mass))[0]
         return k_l
 
 class sz_l() 
     '''
+    Ma & Van Waerbeke 2015 Eq. 3.3
     '''
-    def __init__(self, lens_redshift, mvir, rs):
+    def __init__(self, lens_redshift, ell):
         '''
         '''
+        self.cosmo_dict = config.default_cosmo_dict
+        self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
+
         self.lens_redshift = lens_redshift
-        self.mvir = mvir
-        self.rs = rs
+        self.ell = ell
         self.sigma_T = 6.65e-29 #m^2
         self.me = 9.12e-31 #kg
         self.csq = 9.e16 #m^2/s^2
-        self.msolar = 1.9889e30
+        self.msolar = 1.9889e30 #kg
         self.constant = self.sigma_T / self.me / self.msolar / self.csq #s^2/solar
 
-        self.cosmo_dict = defaults.default_cosmo_dict
-        self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
-        self.ells = (self.cosmo.comoving_distance()/(1. + lens_redshif)/rs)
-        self.concentration = (5.72 / (1. + lens_redshif)**0.71) * (self.mvir / 1e14)**-0.081
-        self.rvir = self.concentration * self.rs
+    def concentration(self, Mvir):
+        '''Ma & Van Waerbeke Eq 3.4 
+           self.conc - unitless. Not that I multiplied with h=0.07 to convert 
+           this in unitless
+        '''
+        return 5.72 / (1. + self.redshift)**0.71 * (Mvir * self.cosmo_dict['h'] / 1e14)**-0.081
 
-    def up_profile():
+    def beta_integral(self, r, beta_y):
+        '''
+        '''
+        return r * r * (1. + (r/self.rs)**2)**(1.5 * beta_y)
+
+    def beta_norm(self, beta_y):
+        '''
+        Eq. 6 & 14 of Waizmann & Bartelmann 2009
+        '''
+        beta_y = 0.86
+        fH = 0.76 #Hydrogen mass fraction
+        mp = 1.67e-27 #kg
+        fgas = 0.168    
+        Ne = (1. + fH) * self.mass * self.msolar * fgas / 2. / mp 
+
+        #Eq. 6 of Waizmann & Bartelmann 2009
+        ne0 = Ne / 4. / np.pi / integrate.quad(beta_integral, 0, self.nfw.Rvir, args=(beta_y))[0] #Unit is Mpc^(-3)
+ 
+
+        #Eq. 14 of Waizmann & Bartelmann 2009
+        kBTe = (1. + self.redshift) / beta_y * (self.nfw.Delta_c() * self.cosmo_dict['omega_m0'] / self.cosmo.rho_crit())**(1/3.) * (self.mass / self.cosmo_dict['h'] / 1e15)**(2/3.) #Unit is keV 
+
+        P0 = ne0 * kBTe #unit is keV Mpc^(-3)
+        return P0
+
+    def beta_pressure_profile(self, r):
+        ''' 
+        Returns beta pressure profile
+
+        Unit of pressure is keV Mpc^(-3)
+        ''' 
+        beta_y = 0.86 # Plagge et al 2010
+
+        return self.beta_norm(beta_y) * (1. + (r/self.rs)**2)**(1.5 * beta_y)
+
+    def beta_profile_integral(self, r):
+        '''
+        Eq. 3.3 of Ma & Van Waerbeke
+        '''
+        return r*r*np.sin(self.ell * r / self.ells) / (self.ell * r / self.ells) * beta_pressure_profile(r)
+
+    def beta_y_l(self, mass): 
+        '''
+        Eq. 3.3 of Ma & Van Waerbeke 
+        '''
+        self.mass = mass
+        self.nfw = NFW(self.redshift, mass, NM=False, print_mode=False)
+        self.rs = self.nfw.Rvir / self.concentration(mass) 
+        self.ells = (self.cosmo.comoving_distance()/(1. + lens_redshif)/self.rs)
+       
+        #Ma&Van says Eq. 3.3 has an upper limit of 5 times virial radius and
+        # x = a(z) * r / rs 
+        ulim = 1/(1.+self.redshift) * 5 * self.nfw.Rvir / self.rs
+
+        y_l = 4. * np.pi * rs * self.constants / self.ells / self.ells * integrate.quad(self.beta_profile_integral, 0, ulim)[0]
+ 
+
+
+    def universal_pressure_profile(self, r, mass):
         '''
         Universal pressure profile Eqs. 4.1 & 4.2 of Ma, Van Waerbeke 2015
+        Eqs. D1 to D3 in Komatsu 2011. However, the constants come from 
+        Planck 2013, A&A, 550, 131
+
+        According to Ma, Van Waerbeke 2015 and Komatsu 2011 the unit of pe is
+        keV cm^-3
         '''
         alpha_p = 0.12
         P0 = 6.41
@@ -140,8 +182,18 @@ class sz_l()
         beta = 4.13
         gamma = 0.31
         bga = (beta - gamma) / alpha
-        p_x = P0 / (c500 * x)**gamma / (1. + (c500 * x)**alpha)**bga
-        return p_x
+        h70 = self.cosmo_dict['h'] / 0.7
+        x = r / self.nfw.R500
+        px = P0 / (c500 * x)**gamma / (1. + (c500 * x)**alpha)**bga
+        pe = 1.65e-3 * self.cosmo.E0**(16/3.) * h70 * h70 * (self.nfw.M500 / 3e14 / h70)**(2./3. + alpha_p) * px 
+        return pe
+
+
+    def universal_pressure_integral(self, r, mass):
+        '''
+        Eq. 3.3 of Ma & Van Waerbeke
+        '''
+        return r*r*np.sin(self.ell * r / self.ells) / (self.ell * r / self.ells) * universal_pressure_profile(r, mass)
 
     def battaglia_P0(self, z):
         return 18.1 * (M200 / 1e14)**0.154 * (1. + z)**-0.758
@@ -155,7 +207,7 @@ class sz_l()
         return 4.35 * (M200 / 1e14)**0.0393 * (1. + z)**0.415
 
 
-    def battaglia_progile(self, x, M200, R200):
+    def battaglia_profile(self, x, M200, R200):
         '''
         Using Battaglia et al (2012)
         ''' 
@@ -171,11 +223,9 @@ class sz_l()
         '''
         return x*x*np.sin(self.ell * x / self.ells) / (self.ell * x / self.ells) * battaglia_progile(x, M200, R200)
 
-    def y_l(self, ): 
-        '''
-        Eq. 3.3 of Ma & Van Waerbeke 
-        '''
-        
-        y_l = self.constants * 4. * np.pi*self.rs/self.ells/self.ells * integrate.quad(self.battaglia_integral, 0, 2, args=(M200, R200))
+
+    def battaglia_y_l(self, mass):
+         
+        y_l = self.constants * 4. * np.pi*self.rs/self.ells/self.ells * integrate.quad(self.battaglia_integral, 0, 2, args=(M200, R200))[0]
         return y_l
 

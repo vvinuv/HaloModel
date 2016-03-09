@@ -16,10 +16,10 @@ class NFW:
         self.h = config.default_cosmo_dict['h']
         self.G = 4.302e-9 / self.h #Mpc h^-1 Mo^-1 (km/s)^2 
         self.H0 = 100. #h km/(Mpc s)
-        self.rho_c = (3 * self.H0**2.) / (8 * np.pi * self.G) # This is the critical density 3*H_0^2/(8*pi*G) (Mo h^3 / Mpc^3)
         self.Omega0 = config.default_cosmo_dict['omega_m0'] # nonrelativistic matter density over critical density 
         self.OmegaR = 0.0 # Radius of curvature
         self.OmegaL = config.default_cosmo_dict['omega_l0'] # Lambda 
+        self.rho_c = (3 * self.Hz()**2.) / (8 * np.pi * self.G) # This is the critical density as a function of redshift 3*H_z^2/(8*pi*G) (Mo h^3 / Mpc^3)
         self.rho_m = self.Omega0 * self.rho_c # nonrelativistic matter density (solar h^3 / Mpc^3)
 
         self.GetRvir()
@@ -28,6 +28,7 @@ class NFW:
         self.rho_s = self.rho_c * (self.Delta_c() / 3.) * self.conc**3. / (np.log(1 + self.conc) - self.conc / (1 + self.conc)) #Solar h^3 / Mpc^3
         self.Rs = self.Rvir / self.conc #Mpc h^(-1) 
 
+        #self.rho_nfw = self.rho_s / (r/self.Rs) / (1. + r/self.Rs)**2
         if NM:
             self.M500, self.R500 = self.RvirToRNM(NM)
         else:
@@ -125,6 +126,7 @@ if __name__=='__main__':
     n = NFW(redshift, mass, NM=False, print_mode=False) 
 
     print 'rho_crit > %.2e Solar h^3 Mpc^(-3)'%(n.rho_c)
+    print 'Rvir > %.2e Mpc h^(-1)'%(n.Rvir)
     print 'M500 > %.2e Solar R500 > %.2e h^-1 Mpc'%(n.M500, n.R500)
     print 'Rs > %.2e h^-1 Mpc rho_s > %.2e Solar h^3 Mpc^-3'%(n.Rs, n.rho_s)
 
