@@ -6,7 +6,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 import config
 from nfw import NFW
 
-class kappa_l():
+class kappa_l:
     '''
     Van Waerbeke et 2014
     '''
@@ -29,10 +29,10 @@ class kappa_l():
         Interpolate source redshift distribution
         '''
         ps, zs = np.histogram(source_redshifts, 100, density=True)
-        zs= (zs[:-1] + zs[1:) / 2.
+        zs= (zs[:-1] + zs[1:]) / 2.
         self.ps_zs_interpolate = InterpolatedUnivariateSpline(zs, ps)
 
-    def source_dist_interpolation(self, source_redshift)
+    def source_dist_interpolation(self, source_redshift):
         '''
         Return probabilty for a given source redshift
         '''
@@ -83,18 +83,19 @@ class kappa_l():
         k_l = self.w_kappa() / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.rho_bar(self.lens_redshift) * integrate.quad(self.nfw_integrate, 0, self.r_vir, args=(mass))[0]
         return k_l
 
-class sz_l() 
+class sz_l: 
     '''
     Ma & Van Waerbeke 2015 Eq. 3.3
     '''
     def __init__(self, lens_redshift, ell):
         '''
         '''
+        self.lens_redshift = lens_redshift
+        self.ell = ell
+
         self.cosmo_dict = config.default_cosmo_dict
         self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
 
-        self.lens_redshift = lens_redshift
-        self.ell = ell
         self.sigma_T = 6.65e-29 #m^2
         self.me = 9.12e-31 #kg
         self.csq = 9.e16 #m^2/s^2
@@ -106,7 +107,7 @@ class sz_l()
            self.conc - unitless. Not that I multiplied with h=0.07 to convert 
            this in unitless
         '''
-        return 5.72 / (1. + self.redshift)**0.71 * (Mvir * self.cosmo_dict['h'] / 1e14)**-0.081
+        return 5.72 / (1. + self.lens_redshift)**0.71 * (Mvir * self.cosmo_dict['h'] / 1e14)**-0.081
 
     def beta_integral(self, r, beta_y):
         '''
@@ -124,11 +125,11 @@ class sz_l()
         Ne = (1. + fH) * self.mass * self.msolar * fgas / 2. / mp 
 
         #Eq. 6 of Waizmann & Bartelmann 2009
-        ne0 = Ne / 4. / np.pi / integrate.quad(beta_integral, 0, self.nfw.Rvir, args=(beta_y))[0] #Unit is Mpc^(-3)
+        ne0 = Ne / 4. / np.pi / integrate.quad(self.beta_integral, 0, self.nfw.Rvir, args=(beta_y))[0] #Unit is Mpc^(-3)
  
 
         #Eq. 14 of Waizmann & Bartelmann 2009
-        kBTe = (1. + self.redshift) / beta_y * (self.nfw.Delta_c() * self.cosmo_dict['omega_m0'] / self.cosmo.rho_crit())**(1/3.) * (self.mass / self.cosmo_dict['h'] / 1e15)**(2/3.) #Unit is keV 
+        kBTe = (1. + self.lens_redshift) / beta_y * (self.nfw.Delta_c() * self.cosmo_dict['omega_m0'] / self.cosmo.rho_crit())**(1/3.) * (self.mass / self.cosmo_dict['h'] / 1e15)**(2/3.) #Unit is keV 
 
         P0 = ne0 * kBTe #unit is keV Mpc^(-3)
         return P0
@@ -147,23 +148,23 @@ class sz_l()
         '''
         Eq. 3.3 of Ma & Van Waerbeke
         '''
-        return r*r*np.sin(self.ell * r / self.ells) / (self.ell * r / self.ells) * beta_pressure_profile(r)
+        return r*r*np.sin(self.ell * r / self.ells) / (self.ell * r / self.ells) * self.beta_pressure_profile(r)
 
     def beta_y_l(self, mass): 
         '''
         Eq. 3.3 of Ma & Van Waerbeke 
         '''
         self.mass = mass
-        self.nfw = NFW(self.redshift, mass, NM=False, print_mode=False)
+        self.nfw = NFW(self.lens_redshift, mass, NM=False, print_mode=False)
         self.rs = self.nfw.Rvir / self.concentration(mass) 
-        self.ells = (self.cosmo.comoving_distance()/(1. + lens_redshif)/self.rs)
+        self.ells = (self.cosmo.comoving_distance()/(1. + self.lens_redshift)/self.rs)
        
         #Ma&Van says Eq. 3.3 has an upper limit of 5 times virial radius and
         # x = a(z) * r / rs 
-        ulim = 1/(1.+self.redshift) * 5 * self.nfw.Rvir / self.rs
+        ulim = 1/(1.+self.lens_redshift) * 5 * self.nfw.Rvir / self.rs
 
-        y_l = 4. * np.pi * rs * self.constants / self.ells / self.ells * integrate.quad(self.beta_profile_integral, 0, ulim)[0]
- 
+        y_l = 4. * np.pi * self.rs * self.constant / self.ells / self.ells * integrate.quad(self.beta_profile_integral, 0, ulim)[0]
+        return y_l 
 
 
     def universal_pressure_profile(self, r, mass):
@@ -215,7 +216,7 @@ class sz_l()
         alpha = 1.0 
         gamma = -0.3
         P200 = 200. * self.cosmo.rho_crit() * self.cosmo_dict["omega_b0"] / self.cosmo_dict["omega_m0"] * G * M200 / R200
-        p_e = P200 * (x / self.battaglia_xc(lens_redshift))**gamma * (1. + (x / self.battaglia_xc(lens_redshift)))**(-1*self.battaglia_beta(lens_redshift))
+        p_e = P200 * (x / self.battaglia_xc(self.lens_redshift))**gamma * (1. + (x / self.battaglia_xc(lens_redshift)))**(-1*self.battaglia_beta(lens_redshift))
         return p_e
 
     def battaglia_integral(self, x, M200, R200):
@@ -229,3 +230,10 @@ class sz_l()
         y_l = self.constants * 4. * np.pi*self.rs/self.ells/self.ells * integrate.quad(self.battaglia_integral, 0, 2, args=(M200, R200))[0]
         return y_l
 
+
+if __name__=='__main__':
+    lens_redshift = 0.1
+    ell = 100
+    mass = 1e14
+    y = sz_l(lens_redshift, ell) 
+    print y.beta_y_l(mass)
