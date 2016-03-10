@@ -38,10 +38,6 @@ class HaloKappaSZ:
         rho_bar - h^2 solar  Mpc^(-3)
         mass_function - h^2 Mpc^(-3)
         '''
-        nfw = NFW(self.cosmo.redshift(), Mvir, NM=False, print_mode=False)
-        Rvir = nfw.Rvir
-        conc = self.concentration(Mvir)
-
         mass_array = np.logspace(np.log10(Mvir*0.99), np.log10(Mvir*1.01), 5)
         ln_mass_array = np.log(mass_array)
         nu_array = np.array([self.cosmo.nu_m(m) for m in mass_array]) 
@@ -69,6 +65,7 @@ class HaloKappaSZ:
         masss_function = self.mass_func(m)
         kappa_l = convergence.kappa_l(z, self.ell)
         y_l = convergence.sz_l(z, self.ell)
+        #print masss_function, kappa_l.k_l(m), y_l.beta_y_l(m)
         return masss_function * kappa_l.k_l(m) * y_l.beta_y_l(m)
 
     def integrate_redshift(self, z):
@@ -83,13 +80,13 @@ class HaloKappaSZ:
         The unit of returned quantiy is Mpc^3 h^(-3)
         ''' 
         self.cosmo = cosmology.SingleEpoch(z, cosmo_dict=self.cosmo_dict)
-        return self.cosmo.comoving_distance() * self.cosmo.comoving_distance() * self.cosmo.E(z) * integrate.quad(self.integrate_mass_func_kappa_y, 1e12, 1e16, args=(z))[0]
+        return self.cosmo.comoving_distance() * self.cosmo.comoving_distance() * self.cosmo.E(z) * integrate.quad(self.integrate_mass_func_kappa_y, 1e12, 1e16, args=(z), epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0]
 
     def cl_1halo_ky(self):
         '''
         Eq. 3.1 of Ma & Van Waerbeke 
         '''
-        return integrate.quad(self.integrate_redshift, 0, 2)[0] 
+        return integrate.quad(self.integrate_redshift, 0, 2, epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0] 
 
     def halo_bias(self, nu):
         '''
@@ -124,19 +121,19 @@ class HaloKappaSZ:
         ''' 
         self.cosmo = cosmology.SingleEpoch(z, cosmo_dict=self.cosmo_dict)
         k = self.ell / self.cosmo.comoving_distance()
-        return self.cosmo.comoving_distance() * self.cosmo.comoving_distance() * self.cosmo.E(z) * self.cosmo.linear_power(k) * integrate.quad(self.integrate_mass_func_kappa, 1e12, 1e16, args=(z))[0] * integrate.quad(self.integrate_mass_func_y,1e12, 1e16, args=(z))[0]
+        return self.cosmo.comoving_distance() * self.cosmo.comoving_distance() * self.cosmo.E(z) * self.cosmo.linear_power(k) * integrate.quad(self.integrate_mass_func_kappa, 1e12, 1e16, args=(z), epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0] * integrate.quad(self.integrate_mass_func_y,1e12, 1e16, args=(z), epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0]
 
 
     def cl_2halo_ky(self):
         ''' 
         Eq. 3.5 of Ma & Van Waerbeke 
         '''
-        return integrate.quad(self.integrate_redshift_linear_power, 0, 2)[0]
+        return integrate.quad(self.integrate_redshift_linear_power, 0, 2, epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0]
 
 
 if __name__=='__main__':
     ell = 100
     h = HaloKappaSZ(ell)
-    #print h.cl_1halo_ky()
+    print h.cl_1halo_ky()
     print h.cl_2halo_ky()
  
