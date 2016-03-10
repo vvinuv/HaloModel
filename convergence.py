@@ -16,6 +16,7 @@ class kappa_l:
 
         self.cosmo_dict = config.default_cosmo_dict
         self.cosmo = cosmology.SingleEpoch(self.lens_redshift, cosmo_dict=self.cosmo_dict)
+        self.source_dist(source_redshifts=None)
 
     def concentration(self, Mvir):
         '''Ma & Van Waerbeke Eq 3.4 
@@ -24,12 +25,24 @@ class kappa_l:
         '''
         return 5.72 / (1. + self.redshift)**0.71 * (Mvir * self.cosmo_dict['h'] / 1e14)**-0.081
 
-    def source_dist(self, source_redshifts):
+    def dNdz_func(self, zstar=0.2, alpha=10):
+        """Mandelbaum (2008) Eq. 9 """
+        zs = np.linspace(0, 3, 100)
+        dNdz = (zs/zstar)**(alpha - 1.) * np.exp(-0.5 * (zs/zstar)**2.)
+        a = (dNdz[1:] + dNdz[:-1])/2.
+        a_int = np.sum(a * (zs[1]-zs[0]))
+        dNdz /= a_int #Normalizing so that integral(dN/dz)=1
+        return dNdz, zs
+
+    def source_dist(self, source_redshifts=None):
         '''
         Interpolate source redshift distribution
         '''
-        ps, zs = np.histogram(source_redshifts, 100, density=True)
-        zs= (zs[:-1] + zs[1:]) / 2.
+        if source_redshifts is None:
+            ps, zs = self.dNdz_func(zstar=0.2, alpha=10)
+        else: 
+            ps, zs = np.histogram(source_redshifts, 100, density=True)
+            zs= (zs[:-1] + zs[1:]) / 2.
         self.ps_zs_interpolate = InterpolatedUnivariateSpline(zs, ps)
 
     def source_dist_interpolation(self, source_redshift):
@@ -51,7 +64,7 @@ class kappa_l:
         '''
         gcosmo_dict = config.default_cosmo_dict
         gcosmo = cosmology.SingleEpoch(source_redshift, cosmo_dict=gcosmo_dict)
-        return source_dist_interpolation(source_redshift) * (cosmo.angular_diameter_distance(source_redshift) - lens_angular_diameter_distance) / cosmo.angular_diameter_distance(source_redshift)      
+        return self.source_dist_interpolation(source_redshift) * (gcosmo.angular_diameter_distance() - lens_angular_diameter_distance) / gcosmo.angular_diameter_distance()      
 
     def w_kappa(self):
         '''
@@ -62,25 +75,26 @@ class kappa_l:
 
         Unit of W(w) = h Mpc^(-1)
         '''
-        w_k = 1.5 * self.cosmo_dict["omega_m0"] * self.cosmo.H0 * self.cosmo.H0 * self.cosmo.angular_diameter_distance(self.lens_redshift) * (1. + lens_redshift) * integrate.quad(g, self.cosmo.angular_diameter_distance(self.lens_redshift), 6000, args=(lens_angular_diameter_distance))[0]
+        w_k = 1.5 * self.cosmo_dict["omega_m0"] * self.cosmo.H0 * self.cosmo.H0 * self.cosmo.angular_diameter_distance() * (1. + self.lens_redshift) * integrate.quad(self.g, self.cosmo.angular_diameter_distance(), 6000, args=(self.cosmo.angular_diameter_distance()))[0]
         return w_k
 
     def nfw_profile(self, r):
         '''
         Coe 2010 Eqs. 33-38
         '''
-        return nfw.rho_s / (r/rs) / (1. + r/rs)**2
+        return self.nfw.rho_s / (r/self.nfw.Rs) / (1. + r/self.nfw.Rs)**2
 
     def nfw_integrate(self, r, mass):
-        return 4 * np.pi * r * r * np.sin(self.ell * r / self.cosmo.comoving_distance(self.lens_redshift)) * self.nfw_profile(r) / (self.ell * r / self.cosmo.comoving_distance(self.lens_redshift))
+        return 4 * np.pi * r * r * np.sin(self.ell * r / self.cosmo.comoving_distance()) * self.nfw_profile(r) / (self.ell * r / self.cosmo.comoving_distance())
 
-    def kappa_l(self, mass):
+    def k_l(self, mass):
         '''
         Ma, Van Waerbeke 2015 Eq. 3.2
         k_l = (W(z)/Chi^2 rho_bar) int_0_r_vir(dr 4pi r^2 sin(l r/Chi) / (lr/Chi) * rho(r, M,z))
         '''
-        Rvir = self.R_virial(mass)
-        k_l = self.w_kappa() / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.comoving_distance(self.lens_redshift) / self.cosmo.rho_bar(self.lens_redshift) * integrate.quad(self.nfw_integrate, 0, self.r_vir, args=(mass))[0]
+        self.nfw = NFW(self.lens_redshift, mass, NM=False, print_mode=False) 
+        Rvir = self.nfw.Rvir
+        k_l = self.w_kappa() / self.cosmo.comoving_distance() / self.cosmo.comoving_distance() / self.cosmo.rho_bar() * integrate.quad(self.nfw_integrate, 0, Rvir, args=(mass))[0]
         return k_l
 
 class sz_l: 
@@ -112,7 +126,7 @@ class sz_l:
     def beta_integral(self, r, beta_y):
         '''
         '''
-        return r * r * (1. + (r/self.rs)**2)**(1.5 * beta_y)
+        return r * r * (1. + (r/self.rs)**2)**(-1.5 * beta_y)
 
     def beta_norm(self, beta_y):
         '''
@@ -142,7 +156,7 @@ class sz_l:
         ''' 
         beta_y = 0.86 # Plagge et al 2010
 
-        return self.beta_norm(beta_y) * (1. + (r/self.rs)**2)**(1.5 * beta_y)
+        return self.beta_norm(beta_y) * (1. + (r/self.rs)**2)**(-1.5 * beta_y)
 
     def beta_profile_integral(self, r):
         '''
@@ -216,7 +230,7 @@ class sz_l:
         alpha = 1.0 
         gamma = -0.3
         P200 = 200. * self.cosmo.rho_crit() * self.cosmo_dict["omega_b0"] / self.cosmo_dict["omega_m0"] * G * M200 / R200
-        p_e = P200 * (x / self.battaglia_xc(self.lens_redshift))**gamma * (1. + (x / self.battaglia_xc(lens_redshift)))**(-1*self.battaglia_beta(lens_redshift))
+        p_e = P200 * (x / self.battaglia_xc(self.lens_redshift))**gamma * (1. + (x / self.battaglia_xc(self.lens_redshift)))**(-1*self.battaglia_beta(self.lens_redshift))
         return p_e
 
     def battaglia_integral(self, x, M200, R200):
@@ -237,3 +251,5 @@ if __name__=='__main__':
     mass = 1e14
     y = sz_l(lens_redshift, ell) 
     print y.beta_y_l(mass)
+    k = kappa_l(lens_redshift, ell)
+    print k.k_l(mass)
