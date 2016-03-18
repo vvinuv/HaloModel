@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
-import cosmology
+import cosmology_vinu as cosmology
 import convergence 
 from nfw import NFW
 import config
@@ -29,20 +29,20 @@ class HaloKappaSZ:
         '''
         p21 and Eqns. 56-59 of CS02     
 
-        m^2 n(m,z) * dlnm * nu = bar(rho) * nu f(nu) * dnu 
-        n(m,z) = bar(rho) * nu f(nu) * (dnu / dlnm) / m^2
-        n(z) = bar(rho) * nu f(nu) * (dnu / dlnm) / m
+        m^2 n(m,z) * dm * nu = m * bar(rho) * nu f(nu) * dnu 
+        n(m,z) = bar(rho) * nu f(nu) * (dlnnu / dlnm) / m^2
+        n(z) = bar(rho) * nu f(nu) * (dlnnu / dlnm) / m
 
         Mvir -solar unit
         nu, nuf - unitless
         rho_bar - h^2 solar  Mpc^(-3)
         mass_function - h^2 Mpc^(-3)
         '''
-        mass_array = np.logspace(np.log10(Mvir*0.99), np.log10(Mvir*1.01), 5)
+        mass_array = np.logspace(np.log10(Mvir*0.99), np.log10(Mvir*1.01), 2)
         ln_mass_array = np.log(mass_array)
-        nu_array = np.array([self.cosmo.nu_m(m) for m in mass_array]) 
-        ln_mass_nu_spline = InterpolatedUnivariateSpline(ln_mass_array, nu_array)
-        ln_mass_nu_derivative = ln_mass_nu_spline.derivatives(np.log(Mvir))[1] #1 for first derivate
+        ln_nu_array = np.log(np.array([self.cosmo.nu_m(m) for m in mass_array])) 
+        #Derivatives of dln_nu/dln_mass at ln_mass
+        ln_nu_ln_mass_derivative = (ln_nu_array[1] - ln_nu_array[0]) / (ln_mass_array[1] - ln_mass_array[0]) #1 for first derivate
         nu = self.cosmo.nu_m(Mvir)
 
         if ST99:
@@ -52,8 +52,8 @@ class HaloKappaSZ:
             nuf_3 = np.exp(-nu_d / 2.) / np.sqrt(np.pi)
             nuf = nuf_1 * nuf_2 * nuf_3        
 
-        masss_function = nuf / nu * self.cosmo.rho_bar() * abs(ln_mass_nu_derivative) / Mvir
-        return masss_function
+        mass_function = nuf * self.cosmo.rho_bar() * abs(ln_nu_ln_mass_derivative) / Mvir
+        return mass_function
 
     def integrate_mass_func_kappa_y(self, m, z):
         '''
@@ -62,11 +62,13 @@ class HaloKappaSZ:
         and find Rvir and concentration accordingly. I need to ask Salman 
         about this assumption  
         '''
-        masss_function = self.mass_func(m)
-        kappa_l = convergence.kappa_l(z, self.ell)
-        y_l = convergence.sz_l(z, self.ell)
-        #print masss_function, kappa_l.k_l(m), y_l.beta_y_l(m)
-        return masss_function * kappa_l.k_l(m) * y_l.beta_y_l(m)
+        mass_function = self.mass_func(m)
+        self.nfw = NFW(z, m, NM=False, print_mode=False)
+        self.kappa_l = convergence.kappa_l(self.w_k, self.cosmo, self.nfw, self.ell).k_l
+        self.y_l = convergence.sz_l(self.cosmo, self.nfw, self.ell).beta_y_l(m)
+
+        #print mass_function, kappa_l.k_l(m), y_l.beta_y_l(m)
+        return mass_function * self.kappa_l * self.y_l
 
     def integrate_redshift(self, z):
         ''' 
@@ -80,13 +82,25 @@ class HaloKappaSZ:
         The unit of returned quantiy is Mpc^3 h^(-3)
         ''' 
         self.cosmo = cosmology.SingleEpoch(z, cosmo_dict=self.cosmo_dict)
-        return self.cosmo.comoving_distance() * self.cosmo.comoving_distance() * self.cosmo.E(z) * integrate.quad(self.integrate_mass_func_kappa_y, 1e12, 1e16, args=(z), epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0]
+        self.w_k = convergence.wk(self.cosmo).w_k
+
+        integrate_z = self.cosmo.comoving_distance() * self.cosmo.comoving_distance() *  self.cosmo.E(z) * integrate.quad(self.integrate_mass_func_kappa_y, 1e12, 1e16, args=(z), epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0]
+        return integrate_z
+
+
+    def integrate_z(self, z):
+        self.cosmo = cosmology.SingleEpoch(z, cosmo_dict=self.cosmo_dict)
+
+        integrate_z = integrate.quad(self.mass_func, 1e12, 1e16, epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0]
+        return integrate_z
+
 
     def cl_1halo_ky(self):
         '''
         Eq. 3.1 of Ma & Van Waerbeke 
         '''
         return integrate.quad(self.integrate_redshift, 0, 2, epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0] 
+        #return integrate.quad(self.integrate_z, 0, 2, epsabs=config.default_precision['epsabs'], epsrel=config.default_precision['epsrel'])[0] 
 
     def halo_bias(self, nu):
         '''
@@ -135,5 +149,5 @@ if __name__=='__main__':
     ell = 100
     h = HaloKappaSZ(ell)
     print h.cl_1halo_ky()
-    print h.cl_2halo_ky()
+    #print h.cl_2halo_ky()
  

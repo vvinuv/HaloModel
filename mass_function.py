@@ -111,27 +111,28 @@ def p_k_redshift():
     sys.exit()
 #p_k_redshift()
 
-z0 = MassFunction(0)
-pl.loglog(z0.mass_array, z0.mass_function, label='z=0')
+if 0:
+    z0 = MassFunction(0)
+    pl.loglog(z0.mass_array, z0.mass_function, label='z=0')
 
-z1 = MassFunction(1)
-pl.loglog(z1.mass_array, z1.mass_function, label='z=1')
+    z1 = MassFunction(1)
+    pl.loglog(z1.mass_array, z1.mass_function, label='z=1')
 
-#pl.figure(2)
-#pl.loglog(z0.nu, z0.nuf, label='z=0')
-#pl.loglog(z1.nu, z1.nuf, label='z=1')
-
-
-#pl.figure(3)
-#pl.loglog(z0.mass_array, z0.ln_mass_nu_derivative, label='z=0')
-#pl.loglog(z1.mass_array, z1.ln_mass_nu_derivative, label='z=1')
-
-#pl.show()
-#sys.exit()
-z2 = MassFunction(2)
-pl.loglog(z2.mass_array, z2.mass_function, label='z=2')
+    #pl.figure(2)
+    #pl.loglog(z0.nu, z0.nuf, label='z=0')
+    #pl.loglog(z1.nu, z1.nuf, label='z=1')
 
 
-pl.legend(loc=0)
-pl.show()
+    #pl.figure(3)
+    #pl.loglog(z0.mass_array, z0.ln_mass_nu_derivative, label='z=0')
+    #pl.loglog(z1.mass_array, z1.ln_mass_nu_derivative, label='z=1')
+
+    #pl.show()
+    #sys.exit()
+    z2 = MassFunction(2)
+    pl.loglog(z2.mass_array, z2.mass_function, label='z=2')
+
+
+    pl.legend(loc=0)
+    pl.show()
 
