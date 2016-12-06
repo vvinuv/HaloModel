@@ -134,9 +134,9 @@ class sz_l:
         self.ell = ell
 
         self.sigma_T = 6.65e-29 #m^2
-        self.me = 9.12e-31 #kg
-        self.csq = 9.e16 #m^2/s^2
-        self.msolar = 1.9889e30 #kg
+        self.me = 9.12e-31 #electron mass kg
+        self.csq = 9.e16 #square of light speed m^2/s^2
+        self.msolar = 1.9889e30 #mass of sun kg
         self.constant = self.sigma_T / self.me / self.msolar / self.csq #s^2/solar
 
     def concentration(self, Mvir):
