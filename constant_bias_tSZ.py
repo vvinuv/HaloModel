@@ -12,7 +12,7 @@ from numba import double, float64, float32
 from numba import jit
 import numba as nb
 import timeit
-from mytools import constants
+#from mytools import constants
 #import fastcorr
  
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
@@ -635,44 +635,29 @@ def integrate_splell(larr_spl, cl_spl, theta_rad, dl):
     return xi *dl / 2 /np.pi
 
 
-def integrate_zdist1(chid, chi, zspl, zint, chizspl):
-    z = chizspl(chid)
-    return zspl(z) * (chid - chi) / chid / zint
-
-     
-def integrate_chi1(chi, l, constk, chiH, chizspl, cozspl, zchispl, zspl, zint, pkspl, zDspl, chiDspl):
-    print 'chi ', chi
-    print 'chi2z ', chizspl(chi)
-    print 'co2z ', cozspl(chi)
-    a = 1. / (1. + cozspl(chi))
-    print a
-    Wk = constk * integrate.quad(integrate_zdis, chi, chiH, args=(chi, zspl, zint, chizspl))[0] * chi / a
-    print Wk
-    cl = Wk * pkspl(l/chi) * chiDspl(chi) * chiDspl(chi) / chi**2.
-    #Wy = consty * bg * Te * ne
-    return cl
-
 @jit(nopython=True)
-def integrate_zdist(chiH, chi, fchi, fNs):
+def integrate_zdist(gchiarr, chi, Ns):
     #chi - in Eq. 2 of Waerbeke
     #fchi - chi in photometric redshift distribution 
-    chiarr = np.linspace(chi, chiH, 100)
+    #chiarr = np.linspace(chi, chiH, 100)
     gint = 0.0
-    zint = 0.0
-    for i in chiarr:
-        gint += ((i - chi) / chi) * fNs[np.argmin(abs(fchi-i))]
-        zint += fNs[np.argmin(abs(fchi-i))]
-    gint /= zint
-    gint *= (chiarr[1] - chiarr[0])
+    i = 0
+    for N in Ns:
+        gint += ((gchiarr[i] - chi) * N / gchiarr[i]) 
+        i += 1
+    gint *= (gchiarr[1] - gchiarr[0])
     return gint
 
 @jit
-def integrate_chi(chi, l, constk, chiH, chizspl, cozspl, zchispl, zspl, zint, pkspl, zDspl, chiDspl):
-    a = 1. / (1. + cozspl(chi))
-    print a
-    Wk = constk * integrate.quad(integrate_zdis, chi, chiH, args=(chi, zspl, zint, chizspl))[0] * chi / a
-    print Wk
-    cl = Wk * pkspl(l/chi) * chiDspl(chi) * chiDspl(chi) / chi**2.
+def integrate_chi(zarr, chiarr, pkarr, Darr, constk, chiH, Ns):
+    aarr = 1. / (1. + zarr)
+    Wk = constk * chiarr / aarr
+    cl = 0.0
+    for i, chi in enumerate(chiarr):
+        gchiarr = chiarr[i+1:]
+        gw = integrate_zdist(gchiarr, chi, Ns[i+1:])
+	cl += Wk[i] * Wk[i] *  gw * gw * pkarr[i] * Darr[i] * Darr[i] / chi**2.
+    cl *= (chiarr[1] - chiarr[0])
     #Wy = consty * bg * Te * ne
     return cl
 
@@ -680,16 +665,26 @@ if __name__=='__main__':
     #Write variables
     omega_m = 0.3
     H0 = 70. #(km/s)/Mpc
-    constants = constants()
-    c = constants.c_km_s
-    constk = 3. * omega_m * (H0 / c)**2. / 2. / constants.mpctocm / constants.mpctocm #cm^-2
-    consty = constants.kB_kev_K  * constants.sigma_t_cm / constants.rest_electron_kev #cm^-2 
+    #constants = constants()
+    #c = constants.c_km_s
+    c = 3e5 #km/s
+    mpctocm = 3.085677581e24
+    kB_kev_K = 8.617330e-8 #keV k^-1
+    sigma_t_cm = 6.6524e-25 #cm^2
+    rest_electron_kev = 511 #keV
+    constk = 3. * omega_m * (H0 / c)**2. / 2. #Mpc^-2
+    print constk
+    consty = kB_kev_K  * sigma_t_cm / rest_electron_kev #cm^-2 
+    const = constk * consty
 
-    f = np.genfromtxt('/media/luna1/vinu/DES_Catalogs/DES_catalogs/Y1/source_distribution.txt')
-    z = f[:,0]
-    Nz = f[:,1]
-    zspl = InterpolatedUnivariateSpline(z, Nz)
+    f = np.genfromtxt('source_distribution.txt')
+    zarr = f[:,0][1:]
+    Ns = f[:,1][1:]
+    zspl = InterpolatedUnivariateSpline(zarr, Ns)
 
+    zarr = np.linspace(0.01, 2, 300)
+    Ns = zspl(zarr)
+    
     compute = 1 #Whether the profile should be computed 
     fwhm = 10 #arcmin Doesn't work now
     rmin = 1 #Inner radius in arcmin 
@@ -702,25 +697,27 @@ if __name__=='__main__':
     lnkarr = np.linspace(np.log(kmin), np.log(kmax), 100)
     karr = np.exp(lnkarr).astype(np.float64)
 
-    chi, co, D = [], [], []
-    for zi in z:
+    chiarr, co, Darr = [], [], []
+    #zarr = np.linspace(0, 2, 10)
+    for zi in zarr:
         cosmo = CosmologyFunctions(zi)
-        chi.append(cosmo.angular_diameter_distance())
+        #chiarr.append(cosmo.angular_diameter_distance())
+        chiarr.append(cosmo.comoving_distance())
         co.append(cosmo.comoving_distance())
-        D.append(cosmo._growth)
+        Darr.append(cosmo._growth)
 
-    
-    zint = np.sum(Nz * (chi[1] - chi[0]))
-    chi = np.array(chi)
-    pl.plot(chi, z)#, chi)
-    pl.plot(co, z)#, chi)
-    pl.show()
-    zchispl = InterpolatedUnivariateSpline(z, chi)
-    chiNzspl = InterpolatedUnivariateSpline(chi, Ns)
-    chizspl = InterpolatedUnivariateSpline(chi, z)
-    cozspl = InterpolatedUnivariateSpline(co, z)
-    zDspl = InterpolatedUnivariateSpline(z, D) 
-    chiDspl = InterpolatedUnivariateSpline(chi, D) 
+	#pk_arr = np.array([cosmo.linear_power(k/cosmo._h) for k in karr]).astype(np.float64) / cosmo._h / cosmo._h / cosmo._h
+        #pl.loglog(karr, pk_arr)
+    #pl.show()
+    #sys.exit() 
+    #zint normalization of Eq 2 of Waerbeke
+    zint = np.sum(Ns * (chiarr[1] - chiarr[0]))
+    #pl.plot(zarr, Ns)
+    Ns /= zint
+    #pl.plot(zarr, Ns)
+    #pl.yscale('log')
+    #pl.show()
+    chiarr = np.array(chiarr)
 
     cosmo = CosmologyFunctions(0.)
 
@@ -728,16 +725,22 @@ if __name__=='__main__':
     pk_arr = np.array([cosmo.linear_power(k/cosmo._h) for k in karr]).astype(np.float64) / cosmo._h / cosmo._h / cosmo._h
     pkspl = InterpolatedUnivariateSpline(karr, pk_arr)
 
-    l = np.linspace(1, 3000, 100)
+    #pl.loglog(karr, pk_arr)
+    larr = np.linspace(1, 3000, 100)
  
-    chiH = chi.max()
-    chiL = chi.min()
-    print chiL, chiH
-    print chizspl(648.519852421)
-    print zchispl(1)
-    for li in l:
-        print integrate.quad(integrate_chi, chiL, chiH, args=(l, constk, chiH, chizspl, cozspl, zchispl, zspl, zint, pkspl, zDspl, chiDspl))
- 
+    chiH = chiarr.max()
+    chiL = chiarr.min()
+    print chiL, chiH, const, zint
+    cl_ky = [] 
+    cl_kk = [] 
+    for l in larr:
+        pkarr = pkspl(l/chiarr)
+        #pl.loglog(chiarr, pkarr)
+        #pl.show()
+        #sys.exit()
+        cl_kk.append(integrate_chi(zarr, chiarr, pkarr, Darr, constk, chiH, Ns))
+    cl_kk = np.array(cl_kk)
+    print cl_kk 
     #np.savetxt('pk_%.1f.txt'%redshift, np.transpose((karr, pk_arr))) 
     #pl.loglog(karr, pk_arr)
     #pl.show()
