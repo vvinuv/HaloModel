@@ -90,6 +90,20 @@ def concentration(Mvir, cosmo_h):
     conc = 10**(1.02 - 0.109 * (np.log10(Mvir) - 12.))
     return conc
 
+@jit(nopython=True)
+def integrate_zdist(gangsarr, gchisarr, angl, Ns):
+    #chi - in Eq. 2 of Waerbeke
+    #fchi - chi in photometric redshift distribution 
+    #angarr = np.linspace(chi, angH, 100)
+    gint = 0.0
+    i = 0
+    for N in Ns:
+        gint += ((gangsarr[i] - angl) * N / gangsarr[i])
+        i += 1
+    #gint *= (gangarr[1] - gangarr[0])
+    gint *= (gchisarr[1] - gchisarr[0])
+    return gint
+
 @jit((nb.float64)(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
 def f_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
     return (frac * rho_critical * Rfrac**3. / 3.) - (rho_s * Rs**3) * (np.log((Rs + Rfrac) / Rs) - Rfrac / (Rs + Rfrac))
@@ -131,7 +145,7 @@ def MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h):
     return Mfrac, Rfrac 
 
 @jit((nb.float64)(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
-def battaglia_profile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
+def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
     '''
     Using Battaglia et al (2012). 
     Eq. 10. M200 in solar mass and R200 in Mpc
@@ -143,6 +157,7 @@ def battaglia_profile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, 
     #Need to multiplied by (1+z) to get the comoving unit as I am giving r in
     #comoving unit.
     R200 *= (1. + z) #Comoving radius 
+    r = x * Rs
     x = r / R200
     #print Mvir, M200, R200
     msolar = 1.9889e30 #kg
@@ -164,7 +179,20 @@ def battaglia_profile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, 
     p_e = pth * 0.518 #For Y=0.24, Vikram, Lidz & Jain
     return p_e
 
-#@jit(nb.typeof((1.0,1.0))(nb.float64, nb.float64, nb.float64[:], nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64),nopython=True)
+@jit(nopython=True)
+def kappaell_integral(r, ell, rho_s, Rs):
+    '''Eq. 3.2 Ma et al'''
+    rRs = r/Rs
+    kl = 4 * np.pi * r * r * np.sin(ell * r / chi) / (ell * r / chi) * rho_s / (rRs * (1+rRs) * (1+rRs))  
+    return kl
+
+def yell_integral(x, z, Rs, chi, Mvir, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
+    '''Eq. 3.3 Ma et al'''
+    x = r / Rs / (1. + z)
+    ls = chi / Rs / (1. + z)
+    yl = x * x * np.sin(ell * x / ls) / (ell * x / ls) * battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
+    return yl
+
 @jit(nopython=True)
 def integrate_1halo(r, Mass, karr, dlnk, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, smooth): 
     '''
@@ -254,53 +282,10 @@ def integrate_splell(larr_spl, cl_spl, theta_rad, dl):
     return xi *dl / 2 /np.pi
 
 
-def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False):
+def wl_tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False):
     '''
     Compute tSZ halomodel from the given mass and redshift
     '''
-    if 0:
-        pl.subplot(211)
-        #for z in [0, 1, 2]:
-        #    cosmo = CosmologyFunctions(z) 
-        #    print z, cosmo.nu_m(1e8)
-            #print cosmo.BryanDelta() 
-            #print z, '%.2e %.2e'%(cosmo.rho_crit(), cosmo.rho_bar())
-        #sys.exit()
-        cosmo = CosmologyFunctions(redshift) 
-        kmin = 1e-4
-        kmax = 1e4
-        mmin = 1e8
-        mmax = 8e15
-        dlnk = np.float64(np.log(kmax/kmin) / 100.)
-        lnkarr = np.arange(np.log(kmin), np.log(kmax), dlnk)
-        karr = np.exp(lnkarr).astype(np.float64)
-        pk_arr = np.array([cosmo.linear_power(k) for k in karr]).astype(np.float64)
-        pl.loglog(karr, pk_arr, c='b', label='z=0')
-        cosmo = CosmologyFunctions(2.0) 
-        pk_arr = np.array([cosmo.linear_power(k) for k in karr]).astype(np.float64)
-        pl.loglog(karr, pk_arr, c='r', label='z=2.0')
-        pl.legend(loc=0)
-
-        pl.subplot(212)
-        cosmo = CosmologyFunctions(0.) 
-        marr = 10**(np.linspace(8, 16, 300))
-        sigma_m = np.array([cosmo.sigma_m(m) for m in marr]) #/ cosmo._growth**(2/3.) 
-        f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/sigma_v_mass_z0.dat')
-        pl.plot(f[:,0], f[:,1], c='b', label='Adam')
-        spl = InterpolatedUnivariateSpline(np.log10(marr), sigma_m)
-        print spl(np.log10(10**14.3610*cosmo._h))
-        int_sigma_m = spl(f[:,0]) 
-        norm = f[:,1]/int_sigma_m
-        pl.plot(f[:,0], sigma_m, c='r', label='Vinu')
-        pl.plot(f[:,0], norm * sigma_m, c='g', ls='--', label='Normalzed Vinu')
-        pl.plot(f[:,0], norm, c='g', ls='--', label='Normalzation')
-        pl.legend(loc=0)
-        pl.xlabel(r'$\log_{10}(M)$')
-        pl.ylabel(r'$\sigma(M)$')
-        pl.savefig('pk_masssigma.pdf', bbox_inches='tight')
-        pl.show()
-        #print cosmo.rho_crit(), cosmo.omega_m()
-        sys.exit()
     cosmo = CosmologyFunctions(redshift) 
     BryanDelta = cosmo.BryanDelta() #OK
     #Msun/Mpc^3 
@@ -312,8 +297,8 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
 
     kmin = 1e-3 #1/Mpc
     kmax = 1e3
-    mmin = 1e8
-    mmax = 8e15
+    mmin = 1e12
+    mmax = 1e15
     dlnk = np.float64(np.log(kmax/kmin) / 100.)
     lnkarr = np.linspace(np.log(kmin), np.log(kmax), 100)
     karr = np.exp(lnkarr).astype(np.float64)
@@ -338,22 +323,6 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
     rho_norm = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
-    if plot_mf:
-        mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=False) for m in marr])
-        #print bmf
-        alf = '/media/luna1/vinu/software/AdamSZ/amass_integrand_test_%.1f'%redshift
-        if os.path.exists(alf):
-            f = np.genfromtxt(alf)
-            pl.scatter(f[:,1], f[:,3], c='r', label='Adam bias MF')
-        pl.title('z=%.1f'%redshift)
-        pl.loglog(marr, mf, c='b', label='Vinu bias MF')
-        pl.legend(loc=0)
-        pl.xlabel(r'$M_\odot$')
-        pl.ylabel(r'Mpc$^{-3}$')
-        pl.savefig('massfunc_%.1f.pdf'%redshift, bbox_inches='tight')
-        pl.show()
-        sys.exit()
-
     #No little h
     Mass_sqnu = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(Mass)) / lnMassSigmaSpl(np.log(Mass))
     hb = np.float64(halo_bias_st(Mass_sqnu))
@@ -362,17 +331,6 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
 
     #battaglia_profile(10, 1e14, 0.1, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
     #sys.exit()
-
-    if plot_press_battaglia:
-        pre = np.array([battaglia_profile(r, Mass, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h) for r in np.linspace(0.1, 3, 100)] )
-        f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/pressure_vs_z_test')
-        pl.loglog(np.linspace(0.1, 3, 100), pre, label='Vinu:Battaglia prof: M=1e14, z=0.1')
-        pl.loglog(f[:,0], f[:,1], c='r', label='Adam:Battaglia prof: M=1e14, z=0.1')
-        pl.xlabel(r'$M_\odot$')
-        pl.ylabel(r'keV cm$^{-3}$')
-        pl.legend(loc=0)
-        pl.show()
-        sys.exit()
 
     #integrate_2halo(1, pk_arr, marr, karr, bmf, dlnk, dlnm, hb, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
     #sys.exit()
@@ -587,5 +545,5 @@ if __name__=='__main__':
         #pl.loglog(karr, pk_arr)
         #pl.show()
         sys.exit()
-    tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=1, plot_mf=False, plot_press_battaglia=False)
+    wl_tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=1, plot_mf=False, plot_press_battaglia=False)
 
