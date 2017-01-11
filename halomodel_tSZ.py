@@ -635,9 +635,9 @@ def bias_mass_func(Mvir, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True):
 
     Mvir -solar unit
     nu, nuf - unitless
-    rho_norm - is the rho_crit * Omega_m * h^2 in the unit of solar  Mpc^(-3)
-    at redshift of z
+    rho_norm - is the rho_crit * Omega_m * h^2 in the unit of solar  Mpc^(-3) at z= 0
     mass_function -  Mpc^(-3)
+    at redshift of z
  
     '''
     mass_array = np.logspace(np.log10(Mvir*0.9999), np.log10(Mvir*1.0001), 2)
@@ -930,11 +930,11 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
     #No little h
     #Need to give mass * h and get the sigma without little h
     sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
-    rho_norm = cosmo0.rho_bar()
+    rho_norm0 = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
     if plot_mf:
-        mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=False) for m in marr])
+        mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=False) for m in marr])
         #print bmf
         alf = '/media/luna1/vinu/software/AdamSZ/amass_integrand_test_%.1f'%redshift
         if os.path.exists(alf):
@@ -953,7 +953,7 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
     Mass_sqnu = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(Mass)) / lnMassSigmaSpl(np.log(Mass))
     hb = np.float64(halo_bias_st(Mass_sqnu))
 
-    bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True) for m in marr]).astype(np.float64)
+    bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=True) for m in marr]).astype(np.float64)
 
     #battaglia_profile(10, 1e14, 0.1, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
     #sys.exit()
@@ -1118,7 +1118,7 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
 
 if __name__=='__main__':
     #Write variables
-    redshift = 0.23 #Redshift of the halo
+    redshift = 2.0 #Redshift of the halo
     Mass = 2e14 #mass of the halo
     compute = 1 #Whether the profile should be computed 
     fwhm = 10 #arcmin Doesn't work now
@@ -1153,14 +1153,14 @@ if __name__=='__main__':
         cosmo0 = CosmologyFunctions(0)
         #Byt giving m * h to sigm_m gives the sigma_m at z=0 
         sigma_m0 = np.array([cosmo0.sigma_m(m*cosmo0._h) for m in marr])
-        rho_norm = cosmo0.rho_bar()
+        rho_norm0 = cosmo0.rho_bar()
         lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0) 
         #pl.plot(lnmarr, sigma_m0)
         #pl.plot(lnmarr, lnMassSigmaSpl(lnmarr))
         #pl.show()
 
-        mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=0) for m in marr])
-        bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=1) for m in marr])
+        mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=0) for m in marr])
+        bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=1) for m in marr])
         np.savetxt('%.1f.txt'%redshift, np.transpose((marr, mf, bmf)))
         #f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/amass_integrand_test_%.f'%redshift)
         #pl.scatter(f[:,1], f[:,3], c='r', label='Adam bias MF')
@@ -1182,5 +1182,5 @@ if __name__=='__main__':
         #pl.loglog(karr, pk_arr)
         #pl.show()
         sys.exit()
-    tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=1, plot_mf=False, plot_press_battaglia=False)
+    tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False)
 
