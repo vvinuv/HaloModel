@@ -172,7 +172,7 @@ def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_
     #comoving unit.
     R200 *= (1. + z) #Comoving radius 
     r = x * (1. + z) * Rs
-    x = r / R200
+    x = r / R200 
     #print Mvir, M200, R200
     msolar = 1.9889e30 #kg
     mpc2cm = 3.0856e24 #cm 
@@ -214,15 +214,15 @@ def integrate_halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_cri
             yint = 0.0
             Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
             #Eq. 3.2 Ma et al
-            rp = np.linspace(0, Rvir, 10)
+            rp = np.linspace(0, 5*Rvir, 100)
             for tr in rp:
                 if tr == 0:
                     continue 
                 kint += (tr * tr * np.sin(ell * tr / chiarr[i]) / (ell * tr / chiarr[i]) * rho_s / (tr/Rs) / (1. + tr/Rs)**2.)
             kint *= (4. * np.pi * (rp[1] - rp[0]))
             #Eq. 3.3 Ma et al
-            xmax = 5 * Rvir / Rs / (1 + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir 
-            xp = np.linspace(0, xmax, 10)
+            xmax = 5 * Rvir / Rs / (1. + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir. I didn't divided by 1+z because Battaglia model is calculated in comoving radial coordinate
+            xp = np.linspace(0, xmax, 20)
             ells = chiarr[i] / (1. + zi) / Rs
             for x in xp:
                 if x == 0:
@@ -240,6 +240,79 @@ def integrate_halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_cri
     cl = cl1h + cl2h
     return cl1h, cl2h, cl
  
+
+@jit(nopython=True)
+def integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+    '''
+    Eq. 3.1 Ma et al. 
+    '''    
+   
+    dz = zarr[1] - zarr[0]
+    cl1h = 0.0
+    cl2h = 0.0
+    mfj = 0
+    for i, zi in enumerate(zarr):
+        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        kl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
+        mint = 0.0
+        mk2 = 0.0
+        for mi in marr:
+            kint = 0.0
+            Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            #Eq. 3.2 Ma et al
+            rp = np.linspace(0, 5 * Rvir, 100)
+            for tr in rp:
+                if tr == 0:
+                    continue 
+                kint += (tr * tr * np.sin(ell * tr / chiarr[i]) / (ell * tr / chiarr[i]) * rho_s / (tr/Rs) / (1. + tr/Rs)**2.)
+            kint *= (4. * np.pi * (rp[1] - rp[0]))
+            mint += (dlnm * mf[mfj] * kint * kint)
+            mk2 += (dlnm * bias[mfj] * mf[mfj] * kint)
+            mfj += 1
+        cl1h += (dVdzdOm[i] * kl_multi * kl_multi * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * kl_multi * kl_multi * mk2 * mk2)
+    cl1h *= dz
+    cl2h *= dz
+    cl = cl1h + cl2h
+    return cl1h, cl2h, cl
+ 
+@jit(nopython=True)
+def integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+    '''
+    Eq. 3.1 Ma et al. 
+    '''    
+   
+    dz = zarr[1] - zarr[0]
+    cl1h = 0.0
+    cl2h = 0.0
+    mfj = 0
+    for i, zi in enumerate(zarr):
+        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        mint = 0.0
+        my2 = 0.0
+        for mi in marr:
+            yint = 0.0
+            Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            #Eq. 3.3 Ma et al
+            xmax = 5 * Rvir / Rs / (1. + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir. I didn't divided by 1+z because Battaglia model is calculated in comoving radial coordinate 
+            xp = np.linspace(0, xmax, 20)
+            ells = chiarr[i] / (1. + zi) / Rs
+            for x in xp:
+                if x == 0:
+                    continue 
+                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile(x, Rs, mi, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+            yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
+            mint += (dlnm * mf[mfj] * yint * yint)
+            my2 += (dlnm * bias[mfj] * mf[mfj] * yint)
+            mfj += 1
+        cl1h += (dVdzdOm[i] * consty * consty * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * consty * consty * my2 * my2)
+    cl1h *= dz
+    cl2h *= dz
+    cl = cl1h + cl2h
+    return cl1h, cl2h, cl
+ 
+
 
 @jit(nopython=True)
 def integrate_rad(theta_radian, xi, ell, dlnt):
@@ -270,7 +343,7 @@ def integrate_splell(larr_spl, cl_spl, theta_rad, dl):
     return xi *dl / 2 /np.pi
 
 
-def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False):
+def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_distribution.txt', kk=False, yy=False, ky=True):
     '''
     Compute tSZ halomodel from the given mass and redshift
     '''
@@ -287,7 +360,7 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     constk = 3. * omega_m0 * (cosmo_h * 100. / light_speed)**2. / 2. #Mpc^-2
     consty = mpctocm * sigma_t_cm / rest_electron_kev 
 
-    fz= np.genfromtxt('source_distribution.txt')
+    fz= np.genfromtxt(zsfile)
     zsarr = fz[:,0]
     Ns = fz[:,1]
     zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
@@ -295,8 +368,8 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
 
     kmin = 1e-4 #1/Mpc
     kmax = 1e4
-    mmin = 1e12
-    mmax = 1e15
+    mmin = 1e10
+    mmax = 1e16
     dlnk = np.float64(np.log(kmax/kmin) / 100.)
     lnkarr = np.linspace(np.log(kmin), np.log(kmax), 100)
     karr = np.exp(lnkarr).astype(np.float64)
@@ -307,8 +380,9 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     #pl.loglog(karr, pk_arr)
     #pl.show()
 
-    dlnm = np.float64(np.log(mmax/mmin) / 100.)
-    lnmarr = np.linspace(np.log(mmin), np.log(mmax), 50)
+    mspace = 50
+    dlnm = np.float64(np.log(mmax/mmin) / mspace)
+    lnmarr = np.linspace(np.log(mmin), np.log(mmax), mspace)
     marr = np.exp(lnmarr).astype(np.float64)
     print 'dlnk, dlnm ', dlnk, dlnm
     #bias_mass_func(1e13, cosmo, ST99=True)
@@ -320,7 +394,7 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     rho_norm0 = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
-    zarr = np.linspace(0.05, 2, 50)
+    zarr = np.linspace(0.05, 2., 50)
     BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], []
     bias, Darr = [], []
     mf = []
@@ -348,11 +422,17 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     Darr = np.array(Darr)
     print mf.shape
 
-    ellarr = np.linspace(1, 3001, 50)
+    ellarr = np.linspace(1, 10001, 10)
+    #ellarr = np.logspace(0, np.log10(10001), 50)
     cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
         pk = pkspl(ell/chiarr)
-        cl1h, cl2h, cl = integrate_halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+        if ky: 
+            cl1h, cl2h, cl = integrate_halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+        if kk:
+            cl1h, cl2h, cl = integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+        if yy:
+            cl1h, cl2h, cl = integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
@@ -361,10 +441,33 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     cl = np.array(cl_arr)
     cl1h = np.array(cl1h_arr)
     cl2h = np.array(cl2h_arr)
-    pl.plot(ellarr, ellarr * (ellarr+1) * cl / 2. / np.pi, label='Cl')
-    pl.plot(ellarr, ellarr * (ellarr+1) * cl1h / 2. / np.pi, label='Cl1h')
-    pl.plot(ellarr, ellarr * (ellarr+1) * cl2h / 2. / np.pi, label='Cl2h')
-    pl.legend(loc=0)
+    if ky:
+        np.savetxt('cl_ky.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+    if kk:
+        np.savetxt('cl_kk.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+    if yy:
+        np.savetxt('cl_yy.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+
+
+    if yy:
+        #Convert y to \delta_T using 147 GHz. (g(x) TCMB)^2 = 7.2786
+        cl *= 7.2786
+        cl1h *= 7.2786
+        cl2h *= 7.2786
+        pl.plot(ellarr, 1e12 * ellarr * (ellarr+1) * cl / 2. / np.pi, label='Cl')
+        pl.plot(ellarr, 1e12 * ellarr * (ellarr+1) * cl1h / 2. / np.pi, label='Cl1h')
+        pl.plot(ellarr, 1e12 * ellarr * (ellarr+1) * cl2h / 2. / np.pi, label='Cl2h')
+        pl.xlabel(r'$\ell$')
+        pl.ylabel(r'$c_\ell \ell (\ell + 1)/2/\pi \mu K^2$')
+        pl.legend(loc=0)
+    else:
+        pl.plot(ellarr, ellarr * (ellarr+1) * cl / 2. / np.pi, label='Cl')
+        pl.plot(ellarr, ellarr * (ellarr+1) * cl1h / 2. / np.pi, label='Cl1h')
+        pl.plot(ellarr, ellarr * (ellarr+1) * cl2h / 2. / np.pi, label='Cl2h')
+        pl.xlabel(r'$\ell$')
+        pl.ylabel(r'$c_\ell \ell (\ell + 1)/2/\pi$')
+        pl.legend(loc=0)
+
     pl.show()
     #No little h
     #Mass_sqnu = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(Mass)) / lnMassSigmaSpl(np.log(Mass))
@@ -396,5 +499,24 @@ if __name__=='__main__':
     space = 50 #logarithmic space between two points
     #Stop
 
-    wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=1, plot_mf=False, plot_press_battaglia=False)
-
+    if 1:
+        wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_distribution.txt', kk=0, yy=0, ky=1)
+    
+    if 0:
+        z = 0.01
+        Mvir = 1e15
+        cosmo = CosmologyFunctions(0)
+        omega_b = cosmo._omega_b0
+        omega_m = cosmo._omega_m0
+        cosmo_h = cosmo._h
+        BryanDelta = cosmo.BryanDelta() 
+        rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
+        Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
+        rp = np.linspace(0, 5 * Rvir, 100)
+        xp = rp / Rs / (1 + z) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir 
+        Pe = []
+        for x in xp:
+            Pe.append(battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b, omega_m, cosmo_h))
+        Pe = np.array(Pe) * rp * rp * 1e3 #keV/cm^3 to ev/cm^3
+        pl.semilogy(rp, Pe)
+        pl.show() 
