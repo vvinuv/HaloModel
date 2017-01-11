@@ -41,9 +41,9 @@ def bias_mass_func(Mvir, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True):
 
     Mvir -solar unit
     nu, nuf - unitless
-    rho_norm - is the rho_crit * Omega_m * h^2 in the unit of solar  Mpc^(-3)
-    at redshift of z
+    rho_norm - is the rho_crit * Omega_m * h^2 in the unit of solar  Mpc^(-3) at z=0
     mass_function -  Mpc^(-3)
+    at redshift of z
  
     '''
     mass_array = np.logspace(np.log10(Mvir*0.9999), np.log10(Mvir*1.0001), 2)
@@ -194,18 +194,21 @@ def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_
     return p_e
 
 @jit(nopython=True)
-def integrate_1halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+def integrate_halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
    
     dz = zarr[1] - zarr[0]
     cl1h = 0.0
+    cl2h = 0.0
     mfj = 0
     for i, zi in enumerate(zarr):
         #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
         kl_yl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
         mint = 0.0
+        mk2 = 0.0
+        my2 = 0.0
         for mi in marr:
             kint = 0.0
             yint = 0.0
@@ -227,44 +230,17 @@ def integrate_1halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_cr
                 yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile(x, Rs, mi, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
             yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
             mint += (dlnm * mf[mfj] * kint * yint)
+            mk2 += (dlnm * bias[mfj] * mf[mfj] * kint)
+            my2 += (dlnm * bias[mfj] * mf[mfj] * yint)
             mfj += 1
         cl1h += (dVdzdOm[i] * kl_yl_multi * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * kl_yl_multi * mk2 * my2)
     cl1h *= dz
-    return cl1h
+    cl2h *= dz
+    cl = cl1h + cl2h
+    return cl1h, cl2h, cl
  
 
-#@jit((nb.float64)(nb.float64, nb.float64[:], nb.float64[:], nb.float64[:], nb.float64[:], nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64),nopython=True)
-@jit(nopython=True)
-def integrate_2halo(r, pk_arr, marr, karr, bmf, dlnk, dlnm, hb, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, smooth): 
-    '''
-    Eq. 8 in Vikram, Lidz & Jain
-    '''    
-    rparr = np.linspace(0.1, 6., 100)
-    drp = rparr[1] - rparr[0]
-    intk = 0.0
-    intksm = 0.0
-    ki = 0
-    #print 1, dr
-    for ki, pk in enumerate(pk_arr):
-        k = karr[ki]
-        intm = 0.0
-        mi = 0
-        for mi, m in enumerate(marr):
-            up = 0.0
-            for rp in rparr:
-                up += (4*np.pi*rp*np.sin(rp*k) * drp * battaglia_profile(rp, m, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h) / k)
-                #print rp, up
-                #print battaglia_profile(rp, m, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
-            intm += (bmf[mi] * up * dlnm)
-            #intm += (bmf[mi] * dlnm)
-        #print 1, m, intm, bmf[mi] 
-        intk += (dlnk * k * k * np.sin(k * r) * pk * hb * intm / r)
-        intksm += (dlnk * k * k * np.sin(k * r) * pk * hb * intm * np.exp(-smooth*smooth*k*k/2.) / r)
-    #print r, intk / 2. / np.pi
-    xi = intk / 2. / np.pi / np.pi
-    xism = intksm / 2. / np.pi / np.pi
-    return xi, xism
- 
 @jit(nopython=True)
 def integrate_rad(theta_radian, xi, ell, dlnt):
     cl = 0.0
@@ -317,8 +293,8 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
     Ns /= zint
 
-    kmin = 1e-3 #1/Mpc
-    kmax = 1e3
+    kmin = 1e-4 #1/Mpc
+    kmax = 1e4
     mmin = 1e12
     mmax = 1e15
     dlnk = np.float64(np.log(kmax/kmin) / 100.)
@@ -326,7 +302,8 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     karr = np.exp(lnkarr).astype(np.float64)
     #No little h
     #Input Mpc/h to power spectra and get Mpc^3/h^3
-    #pk_arr = np.array([cosmo.linear_power(k/cosmo._h) for k in karr]).astype(np.float64) / cosmo._h / cosmo._h / cosmo._h
+    pk_arr = np.array([cosmo0.linear_power(k/cosmo0._h) for k in karr]).astype(np.float64) / cosmo0._h / cosmo0._h / cosmo0._h
+    pkspl = InterpolatedUnivariateSpline(karr/cosmo0._h, pk_arr, k=2) 
     #pl.loglog(karr, pk_arr)
     #pl.show()
 
@@ -340,22 +317,25 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     #No little h
     #Need to give mass * h and get the sigma without little h
     sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
-    rho_norm = cosmo0.rho_bar()
+    rho_norm0 = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
     zarr = np.linspace(0.05, 2, 50)
     BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], []
+    bias, Darr = [], []
     mf = []
     for zi in zarr:
         cosmo = CosmologyFunctions(zi)
-        rho_norm = cosmo.rho_bar()
         BDarr.append(cosmo.BryanDelta()) #OK
         rhobarr.append(cosmo.rho_bar() * cosmo._h * cosmo._h)
         chiarr.append(cosmo.comoving_distance() / cosmo._h)
         #Msun/Mpc^3 
-        mf.append(np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=False) for m in marr]).astype(np.float64))
+        mf.append(np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=False) for m in marr]).astype(np.float64))
+        bias.append(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]))
         rho_crit_arr.append(cosmo.rho_crit() * cosmo._h * cosmo._h) #OK
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
+        Darr.append(cosmo._growth)
+
     BDarr = np.array(BDarr)
     rhobarr = np.array(rhobarr)
     chiarr = np.array(chiarr)
@@ -364,18 +344,27 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot
     mf = np.array(mf).flatten()
     zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
     chisarr = zchispl(zsarr)
-
+    bias = np.array(bias).flatten()
+    Darr = np.array(Darr)
     print mf.shape
 
     ellarr = np.linspace(1, 3001, 50)
-    cl = []
+    cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
-        cl1h = integrate_1halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
-        cl.append(cl1h)
-        print ell, cl1h
+        pk = pkspl(ell/chiarr)
+        cl1h, cl2h, cl = integrate_halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+        cl_arr.append(cl)
+        cl1h_arr.append(cl1h)
+        cl2h_arr.append(cl2h)
+        print ell, cl1h, cl2h, cl
 
-    cl = np.array(cl)
-    pl.plot(ellarr, ellarr * (ellarr+1) * cl / 2. / np.pi)
+    cl = np.array(cl_arr)
+    cl1h = np.array(cl1h_arr)
+    cl2h = np.array(cl2h_arr)
+    pl.plot(ellarr, ellarr * (ellarr+1) * cl / 2. / np.pi, label='Cl')
+    pl.plot(ellarr, ellarr * (ellarr+1) * cl1h / 2. / np.pi, label='Cl1h')
+    pl.plot(ellarr, ellarr * (ellarr+1) * cl2h / 2. / np.pi, label='Cl2h')
+    pl.legend(loc=0)
     pl.show()
     #No little h
     #Mass_sqnu = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(Mass)) / lnMassSigmaSpl(np.log(Mass))
