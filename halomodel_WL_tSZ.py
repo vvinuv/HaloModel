@@ -14,6 +14,7 @@ import numba as nb
 import timeit
 import cosmology_vinu as cosmology
 #import fastcorr
+from halomodel_tSZ import CosmologyFunctions
  
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
@@ -82,7 +83,7 @@ def bias_mass_func(Mvir, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True):
 
 
 @jit((nb.float64)(nb.float64, nb.float64),nopython=True)
-def concentration(Mvir, cosmo_h):
+def concentration_maccio(Mvir, cosmo_h):
     '''Maccio 07 - Eq. 8. I also found that it is only within 1e9 < M < 5e13.
        What is this Delta_vir=98 in page 57
     '''
@@ -90,19 +91,31 @@ def concentration(Mvir, cosmo_h):
     conc = 10**(1.02 - 0.109 * (np.log10(Mvir) - 12.))
     return conc
 
+@jit((nb.float64)(nb.float64, nb.float64, nb.float64),nopython=True)
+def concentration_duffy(Mvir, z, cosmo_h):
+    '''Duffy 2008'''
+    conc = (5.72 / (1. + z)**0.71) * (Mvir * cosmo_h / 1e14)**-0.081
+    return conc
+
 @jit(nopython=True)
-def integrate_zdist(gangsarr, gchisarr, angl, Ns):
-    #chi - in Eq. 2 of Waerbeke
-    #fchi - chi in photometric redshift distribution 
-    #angarr = np.linspace(chi, angH, 100)
-    gint = 0.0
-    i = 0
-    for N in Ns:
-        gint += ((gangsarr[i] - angl) * N / gangsarr[i])
-        i += 1
-    #gint *= (gangarr[1] - gangarr[0])
-    gint *= (gchisarr[1] - gchisarr[0])
-    return gint
+def Wk(zl, chil, zsarr, chisarr, Ns, constk):
+    #zl = lens redshift
+    #chil = comoving distant to lens
+    #zsarr = redshift distribution of source
+    #angsarr = angular diameter distance
+    #Ns = Normalized redshift distribution of sources 
+    al = 1. / (1. + zl)
+    Wk = constk * chil / al
+    gw = 0.0
+    for i, N in enumerate(Ns):
+        if chisarr[i] < chil:
+            continue
+        gw += ((chisarr[i] - chil) * N / chisarr[i])
+    gw *= (zsarr[1] - zsarr[0])
+    if gw <= 0:
+        gw = 0.
+    Wk = Wk * gw
+    return Wk
 
 @jit((nb.float64)(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
 def f_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
@@ -112,12 +125,13 @@ def f_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
 def df_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
     return (frac * rho_critical * Rfrac**2.) - (rho_s * Rs**3) * (Rfrac / (Rs + Rfrac)**2.)
 
-@jit(nb.typeof((1.0,1.0))(nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
-def MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h):
+@jit(nopython=True)
+def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h):
     '''Convert Mvir in solar mass to Rvir in Mpc, M200 in solar mass 
        R200 in Mpc
     '''
-    conc = concentration(Mvir, cosmo_h)
+    #conc = concentration_maccio(Mvir, cosmo_h)
+    conc = concentration_duffy(Mvir, z, cosmo_h)
     #print Mvir, conc
     Rvir = (Mvir / ((4 * np.pi / 3.) * BryanDelta * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
@@ -142,9 +156,9 @@ def MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h):
     Rfrac = x1
     Mfrac = (4. / 3.) * np.pi * Rfrac**3 * frac * rho_critical
     #print Mvir, Mfrac, Rvir, Rfrac
-    return Mfrac, Rfrac 
+    return Mfrac, Rfrac, rho_s, Rs, Rvir 
 
-@jit((nb.float64)(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
+@jit(nopython=True)
 def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
     '''
     Using Battaglia et al (2012). 
@@ -152,12 +166,12 @@ def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_
     Retrun: 
         Pressure profile in keV/cm^3 at radius r
     '''
-    M200, R200 = MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h)
+    M200, R200, rho_s, Rs, Rvir = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
     #It seems R200 is in the physical distance, i.e. proper distance
     #Need to multiplied by (1+z) to get the comoving unit as I am giving r in
     #comoving unit.
     R200 *= (1. + z) #Comoving radius 
-    r = x * Rs
+    r = x * (1. + z) * Rs
     x = r / R200
     #print Mvir, M200, R200
     msolar = 1.9889e30 #kg
@@ -180,45 +194,43 @@ def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_
     return p_e
 
 @jit(nopython=True)
-def kappaell_integral(r, ell, rho_s, Rs):
-    '''Eq. 3.2 Ma et al'''
-    rRs = r/Rs
-    kl = 4 * np.pi * r * r * np.sin(ell * r / chi) / (ell * r / chi) * rho_s / (rRs * (1+rRs) * (1+rRs))  
-    return kl
-
-def yell_integral(x, z, Rs, chi, Mvir, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
-    '''Eq. 3.3 Ma et al'''
-    x = r / Rs / (1. + z)
-    ls = chi / Rs / (1. + z)
-    yl = x * x * np.sin(ell * x / ls) / (ell * x / ls) * battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
-    return yl
-
-@jit(nopython=True)
-def integrate_1halo(r, Mass, karr, dlnk, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, smooth): 
+def integrate_1halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
     '''
-    Eq. 8 in Vikram, Lidz & Jain
+    Eq. 3.1 Ma et al. 
     '''    
    
-    #karr = np.exp(np.linspace(np.log(0.1), np.log(1000), 10000))
-    #dlnk = np.log(10000./0.1) / 10000.
-    rparr = np.linspace(0.1, 6., 100)
-    drp = rparr[1] - rparr[0]
-    intk = 0.0
-    intksm = 0.0
-    ki = 0
-    #print 1, drp
-    for k in karr:
-        up = 0.0
-        for rp in rparr:
-            up += (4*np.pi*rp*np.sin(rp*k) * drp * battaglia_profile(rp, Mass, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h) / k)
-            #print rp, up
-            #print battaglia_profile(rp, m, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
-        intk += (up * dlnk * k * k * np.sin(k * r) / r)
-        intksm += (up * dlnk * k * k * np.sin(k * r) * np.exp(-smooth*smooth*k*k/2.) / r)
-    #print r, intk / 2. / np.pi
-    xi = intk / 2. / np.pi / np.pi
-    xism = intksm / 2. / np.pi / np.pi
-    return xi, xism
+    dz = zarr[1] - zarr[0]
+    cl1h = 0.0
+    mfj = 0
+    for i, zi in enumerate(zarr):
+        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        kl_yl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
+        mint = 0.0
+        for mi in marr:
+            kint = 0.0
+            yint = 0.0
+            Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            #Eq. 3.2 Ma et al
+            rp = np.linspace(0, Rvir, 10)
+            for tr in rp:
+                if tr == 0:
+                    continue 
+                kint += (tr * tr * np.sin(ell * tr / chiarr[i]) / (ell * tr / chiarr[i]) * rho_s / (tr/Rs) / (1. + tr/Rs)**2.)
+            kint *= (4. * np.pi * (rp[1] - rp[0]))
+            #Eq. 3.3 Ma et al
+            xmax = 5 * Rvir / Rs / (1 + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir 
+            xp = np.linspace(0, xmax, 10)
+            ells = chiarr[i] / (1. + zi) / Rs
+            for x in xp:
+                if x == 0:
+                    continue 
+                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile(x, Rs, mi, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+            yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
+            mint += (dlnm * mf[mfj] * kint * yint)
+            mfj += 1
+        cl1h += (dVdzdOm[i] * kl_yl_multi * mint)
+    cl1h *= dz
+    return cl1h
  
 
 #@jit((nb.float64)(nb.float64, nb.float64[:], nb.float64[:], nb.float64[:], nb.float64[:], nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64),nopython=True)
@@ -282,18 +294,28 @@ def integrate_splell(larr_spl, cl_spl, theta_rad, dl):
     return xi *dl / 2 /np.pi
 
 
-def wl_tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False):
+def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False):
     '''
     Compute tSZ halomodel from the given mass and redshift
     '''
-    cosmo = CosmologyFunctions(redshift) 
-    BryanDelta = cosmo.BryanDelta() #OK
-    #Msun/Mpc^3 
-    rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h #OK
-    #print BryanDelta, rho_critical
-    omega_b0 = cosmo._omega_b0
-    omega_m0 = cosmo._omega_m0
-    cosmo_h = cosmo._h
+    cosmo0 = CosmologyFunctions(0)
+    omega_b0 = cosmo0._omega_b0
+    omega_m0 = cosmo0._omega_m0
+    cosmo_h = cosmo0._h
+
+    light_speed = 2.998e5 #km/s
+    mpctocm = 3.085677581e24
+    kB_kev_K = 8.617330e-8 #keV k^-1
+    sigma_t_cm = 6.6524e-25 #cm^2
+    rest_electron_kev = 511 #keV
+    constk = 3. * omega_m0 * (cosmo_h * 100. / light_speed)**2. / 2. #Mpc^-2
+    consty = mpctocm * sigma_t_cm / rest_electron_kev 
+
+    fz= np.genfromtxt('source_distribution.txt')
+    zsarr = fz[:,0]
+    Ns = fz[:,1]
+    zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
+    Ns /= zint
 
     kmin = 1e-3 #1/Mpc
     kmax = 1e3
@@ -304,38 +326,69 @@ def wl_tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, pl
     karr = np.exp(lnkarr).astype(np.float64)
     #No little h
     #Input Mpc/h to power spectra and get Mpc^3/h^3
-    pk_arr = np.array([cosmo.linear_power(k/cosmo._h) for k in karr]).astype(np.float64) / cosmo._h / cosmo._h / cosmo._h
+    #pk_arr = np.array([cosmo.linear_power(k/cosmo._h) for k in karr]).astype(np.float64) / cosmo._h / cosmo._h / cosmo._h
     #pl.loglog(karr, pk_arr)
     #pl.show()
 
     dlnm = np.float64(np.log(mmax/mmin) / 100.)
-    lnmarr = np.linspace(np.log(mmin), np.log(mmax), 100)
+    lnmarr = np.linspace(np.log(mmin), np.log(mmax), 50)
     marr = np.exp(lnmarr).astype(np.float64)
     print 'dlnk, dlnm ', dlnk, dlnm
     #bias_mass_func(1e13, cosmo, ST99=True)
     #sys.exit()
 
-
-    cosmo0 = CosmologyFunctions(0)
     #No little h
     #Need to give mass * h and get the sigma without little h
     sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
     rho_norm = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
+    zarr = np.linspace(0.05, 2, 50)
+    BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], []
+    mf = []
+    for zi in zarr:
+        cosmo = CosmologyFunctions(zi)
+        rho_norm = cosmo.rho_bar()
+        BDarr.append(cosmo.BryanDelta()) #OK
+        rhobarr.append(cosmo.rho_bar() * cosmo._h * cosmo._h)
+        chiarr.append(cosmo.comoving_distance() / cosmo._h)
+        #Msun/Mpc^3 
+        mf.append(np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=False) for m in marr]).astype(np.float64))
+        rho_crit_arr.append(cosmo.rho_crit() * cosmo._h * cosmo._h) #OK
+        dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
+    BDarr = np.array(BDarr)
+    rhobarr = np.array(rhobarr)
+    chiarr = np.array(chiarr)
+    dVdzdOm = np.array(dVdzdOm) * chiarr * chiarr
+    rho_crit_arr = np.array(rho_crit_arr)
+    mf = np.array(mf).flatten()
+    zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
+    chisarr = zchispl(zsarr)
+
+    print mf.shape
+
+    ellarr = np.linspace(1, 3001, 50)
+    cl = []
+    for ell in ellarr:
+        cl1h = integrate_1halo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+        cl.append(cl1h)
+        print ell, cl1h
+
+    cl = np.array(cl)
+    pl.plot(ellarr, ellarr * (ellarr+1) * cl / 2. / np.pi)
+    pl.show()
     #No little h
-    Mass_sqnu = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(Mass)) / lnMassSigmaSpl(np.log(Mass))
-    hb = np.float64(halo_bias_st(Mass_sqnu))
+    #Mass_sqnu = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(Mass)) / lnMassSigmaSpl(np.log(Mass))
+    #hb = np.float64(halo_bias_st(Mass_sqnu))
 
-    bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True) for m in marr]).astype(np.float64)
+    #bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True) for m in marr]).astype(np.float64)
 
-    #battaglia_profile(10, 1e14, 0.1, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
-    #sys.exit()
+    sys.exit()
 
     #integrate_2halo(1, pk_arr, marr, karr, bmf, dlnk, dlnm, hb, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
     #sys.exit()
     #print rarr, cosmo.comoving_distance()
-    smooth_r = (fwhm/60.) * np.pi / 180 / np.sqrt(8 * np.log(2)) * cosmo.comoving_distance() #angle = arc/radius
+    #smooth_r = (fwhm/60.) * np.pi / 180 / np.sqrt(8 * np.log(2)) * cosmo.comoving_distance() #angle = arc/radius
     #print smooth_r
     #sys.exit()
     #Bk = np.exp(-karr*karr*smooth_r*smooth_r/2.)
@@ -345,144 +398,8 @@ def wl_tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, pl
         rarr = np.linspace(rmin, rmax, space).astype(np.float64)
     print rarr
 
-    fy3d = 'yprof3d_%.1f_%.1f.txt'%(np.log10(Mass), redshift)
-    fy2d = 'yproj_%.1f_%.1f.txt'%(np.log10(Mass), redshift)
-    if compute:
-        xi1h, xi2h, xi = [], [], [] 
-        xi1hsm, xi2hsm, xism = [], [], [] 
-        trarr = np.linspace(1e-4, 200, 1000)
-        dtr = trarr[1] - trarr[0]
-        h11 = np.array([battaglia_profile(r, Mass, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h) for r in trarr])
-        print smooth_r, dtr
-        h1sm = gaussian_filter(h11, smooth_r/dtr, mode='constant', cval=0.) 
-        h1smSpl = InterpolatedUnivariateSpline(trarr, h1sm, k=1) 
-        #pl.semilogx(trarr, h11)
-        #pl.semilogx(trarr, h1smSpl(trarr))
-        #pl.show()
-        #sys.exit()
-        print 'Comoving R 1halo 2halo'
-        for r in rarr:
-            h1 = battaglia_profile(r, Mass, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h)
-            h1sm = h1smSpl(r)
-            #h1, h1sm = integrate_1halo(r, Mass, karr, dlnk, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, smooth_r)
-            h2, h2sm = integrate_2halo(r, pk_arr, marr, karr, bmf, dlnk, dlnm, hb, redshift, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, smooth_r)
-            #h2 = 0.
-            xi1h.append(h1)
-            xi2h.append(h2)
-            xi.append(h1 + h2)
-            xi1hsm.append(h1sm)
-            xi2hsm.append(h2sm)
-            xism.append(h1sm + h2sm)
- 
-            print '%.2e %.2e %.2e %.2e %.2e'%(r, h1, h1sm, h2, h2sm)
-        np.savetxt(fy3d, np.transpose((rarr, xi1h, xi2h, xi, xi1hsm, xi2hsm, xism)))
-
-    theta_arcmin_arr = 60 * (180. / np.pi) * rarr / cosmo.comoving_distance()
-    theta_radian_arr = rarr / cosmo.comoving_distance()
-    larr = 1 / theta_radian_arr
- 
-    f = np.genfromtxt(fy3d)
-    rarr, xi1h, xi2h, xi = f[:,0], f[:,1], f[:,2], f[:,3]
-    xi1hsm, xi2hsm, xism = f[:,4], f[:,5], f[:,6]
-
-    if plot3d: 
-        f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/twop_press_test_2')
-        pl.loglog(rarr, xi1h, c='r', label='1halo-Vinu')
-        pl.loglog(rarr, xi2h, c='g', label='2halo-Vinu')
-        pl.loglog(rarr, xi, c='k', label='Total-Vinu')
-        pl.loglog(f[:,0], f[:,1], c='r', ls='--', label='1halo-Adam')
-        pl.loglog(f[:,0], f[:,2], c='g', ls='--', label='2halo-Adam')
-        pl.legend(loc=0)
-        pl.xlabel('r (Mpc)')
-        pl.ylabel(r'$\xi_{y,g}(r)$')
-        pl.savefig('compareAdamVinu3d.pdf', bbox_inches='tight')
-        pl.show()
-        #sys.exit()
- 
-    xi1h_spl = InterpolatedUnivariateSpline(rarr, xi1h, k=3)
-    xi2h_spl = InterpolatedUnivariateSpline(rarr, xi2h, k=3)
-    xi_spl = InterpolatedUnivariateSpline(rarr, xi, k=3)
-    xi1hsm_spl = InterpolatedUnivariateSpline(rarr, xi1hsm, k=3)
-    xi2hsm_spl = InterpolatedUnivariateSpline(rarr, xi2hsm, k=3)
-    xism_spl = InterpolatedUnivariateSpline(rarr, xism, k=3)
- 
-    #trarr = np.logspace(np.log10(0.1), np.log10(50), 100)
-    #pl.loglog(trarr, xi1h_spl(trarr))
-    #pl.show()
-
-    sigma_t=6.6524e-25 #cm^2
-    rest_electron_kev=511. #keV
-    mpc2cm = mpc_to_cm=3.0856e24
-    rmin = .0
-    #rmax = 50.
-    #space = 150. #rmin=0, rmax=50 and space=150 is consistent with Adam's model
-    #dr = (rmax - rmin) / (space - 1)
-    dr = 0.33557047
-    space = int(1 + (rmax - rmin) / dr)
-    sqxi = np.linspace(rmin, rmax, space)**2.
-    xi1h_proj, xi2h_proj, xi_proj = [], [], [] 
-    xi1hsm_proj, xi2hsm_proj, xism_proj = [], [], [] 
-    for r in rarr:
-        R = np.sqrt(r**2. + sqxi)
-        R = R[R < rmax]
-        xi1h_proj.append(xi1h_spl(R).sum()*dr)
-        xi2h_proj.append(xi2h_spl(R).sum()*dr)
-        xi_proj.append(xi_spl(R).sum()*dr)
-        xi1hsm_proj.append(xi1hsm_spl(R).sum()*dr)
-        xi2hsm_proj.append(xi2hsm_spl(R).sum()*dr)
-        xism_proj.append(xism_spl(R).sum()*dr)
- 
-           
-    xi1h_proj = 2. * np.array(xi1h_proj) * sigma_t * mpc2cm / rest_electron_kev / (1. + redshift) 
-    xi2h_proj = 2. * np.array(xi2h_proj) * sigma_t * mpc2cm / rest_electron_kev / (1. + redshift)
-    xi_proj = 2. * np.array(xi_proj) * sigma_t * mpc2cm / rest_electron_kev / (1. + redshift)
-    
-    ##larr = np.linspace(1, 1e6, 10000)
-    ##Bl = np.exp(-larr*(1.+larr)*smooth_r*smooth_r/2.)
-    ##hh = 0.002
-    ##NN = 20
-    ##clsm_proj = fastcorr.calc_corr(larr, theta_radian_arr, xi_proj, N=NN, h=hh)
-    ##clsm_proj = np.nan_to_num(clsm_proj) * Bl
-    ##xism_proj = fastcorr.calc_corr(theta_radian_arr, larr, clsm_proj, N=NN, h=hh)
-    ##xism_proj = np.nan_to_num(xism_proj)
-    ##print xism_proj
-
-    xi1hsm_proj = 2. * np.array(xi1hsm_proj) * sigma_t * mpc2cm / rest_electron_kev / (1. + redshift) 
-    xi2hsm_proj = 2. * np.array(xi2hsm_proj) * sigma_t * mpc2cm / rest_electron_kev / (1. + redshift)
-    xism_proj = 2. * np.array(xism_proj) * sigma_t * mpc2cm / rest_electron_kev / (1. + redshift)
-    
-
-
-    #xi1h_proj_sm = gaussian_filter(xi1h_proj, smooth_r)
-    #xi2h_proj_sm = gaussian_filter(xi2h_proj, smooth_r)
-    #xi_proj_sm = gaussian_filter(xi_proj, smooth_r)
-    #print rarr
-    #print xi1h_proj
-    #print xi2h_proj
-    #print xi_proj
-    np.savetxt(fy2d, np.transpose((theta_arcmin_arr, rarr, xi1h_proj, xi2h_proj, xi_proj, xi1hsm_proj, xi2hsm_proj, xism_proj)), fmt='%.6e', header='R(arcmin) R(Comovin-Mpc) 1halo 2halo Total Smoothed-1halo Smoothed-2halo Smoothed-Total')
-
-    if plot_proj:    
-        alf = '/media/luna1/vinu/software/AdamSZ/yproj_test_%.1f'%redshift
-        if os.path.exists(alf):
-            f = np.genfromtxt(alf)
-            pl.loglog(f[:,0], f[:,1], c='r', ls='--', label='1halo-Adam')
-            pl.loglog(f[:,0], f[:,2], c='g', ls='--', label='2halo-Adam')
-            pl.loglog(f[:,0], f[:,3], c='k', ls='--', label='Total-Adam')
-        pl.loglog(rarr, xi1h_proj, c='r', label='1halo-Vinu')
-        pl.loglog(rarr, xi2h_proj, c='g', label='2halo-Vinu')
-        pl.loglog(rarr, xi_proj, c='k', label='Total-Vinu')
-        #pl.loglog(rarr, xism_proj, c='k', label='Smoothed total-Vinu')
-        pl.legend(loc=0)
-        pl.xlabel('r (Mpc)')
-        pl.ylabel(r'$\xi_{y,g}(r)$')
-        pl.savefig('compareAdamVinu_%.1f.pdf'%redshift, bbox_inches='tight')
-        pl.show()
-
 if __name__=='__main__':
     #Write variables
-    redshift = 0.5 #Redshift of the halo
-    Mass = 1e14 #mass of the halo
     compute = 0 #Whether the profile should be computed 
     fwhm = 0 #arcmin Doesn't work now
     rmin = 1e-2 #Inner radius of pressure profile 
@@ -490,60 +407,5 @@ if __name__=='__main__':
     space = 50 #logarithmic space between two points
     #Stop
 
-    if 0:
-        mmin = 1e8
-        mmax = 8e15
-        dlnm = np.float64(np.log(mmax/mmin) / 9.)
-        lnmarr = np.linspace(np.log(mmin), np.log(mmax), 10)
-        marr = np.exp(lnmarr).astype(np.float64)
-        colors = pl.cm.jet(np.linspace(0, 1, marr.shape[0])) 
-        for i, m in enumerate(marr):
-            sigma_m = np.array([CosmologyFunctions(z).sigma_m(m) for z in np.linspace(0,2,10)])
-            pl.plot(np.linspace(0,2,10), sigma_m, label='M=%.2e'%m, c=colors[i])
-        pl.legend(loc=0)
-        pl.xlabel('z')
-        pl.ylabel(r'$\sigma_m$')
-        pl.show()
-        sys.exit()
-    if 0:
-        cosmo = CosmologyFunctions(redshift)
-        mmin = 1e8
-        mmax = 8e15
-        dlnm = np.float64(np.log(mmax/mmin) / 100.)
-        
-        lnmarr = np.linspace(np.log(mmin), np.log(mmax), 100)
-        marr = np.exp(lnmarr).astype(np.float64)
-        cosmo0 = CosmologyFunctions(0)
-        #Byt giving m * h to sigm_m gives the sigma_m at z=0 
-        sigma_m0 = np.array([cosmo0.sigma_m(m*cosmo0._h) for m in marr])
-        rho_norm = cosmo0.rho_bar()
-        lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0) 
-        #pl.plot(lnmarr, sigma_m0)
-        #pl.plot(lnmarr, lnMassSigmaSpl(lnmarr))
-        #pl.show()
-
-        mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=0) for m in marr])
-        bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=1) for m in marr])
-        np.savetxt('%.1f.txt'%redshift, np.transpose((marr, mf, bmf)))
-        #f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/amass_integrand_test_%.f'%redshift)
-        #pl.scatter(f[:,1], f[:,3], c='r', label='Adam bias MF')
-        #pl.loglog(marr, mf)
-        #pl.show()
-        sys.exit()
-    if 0:
-        cosmo = CosmologyFunctions(redshift)
-        kmin = 1e-4
-        kmax = 1e4
-        mmin = 1e8
-        mmax = 8e15
-        dlnk = np.float64(np.log(kmax/kmin) / 100.)
-        lnkarr = np.linspace(np.log(kmin), np.log(kmax), 100)
-        karr = np.exp(lnkarr).astype(np.float64)
-        #No little h
-        pk_arr = np.array([cosmo.linear_power(k/cosmo._h) for k in karr]).astype(np.float64) / cosmo._h / cosmo._h / cosmo._h
-        np.savetxt('pk_%.1f.txt'%redshift, np.transpose((karr, pk_arr))) 
-        #pl.loglog(karr, pk_arr)
-        #pl.show()
-        sys.exit()
-    wl_tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=1, plot_mf=False, plot_press_battaglia=False)
+    wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=1, plot_mf=False, plot_press_battaglia=False)
 
