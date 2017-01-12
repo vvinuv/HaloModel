@@ -260,6 +260,7 @@ def integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
             kint = 0.0
             Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
             #Eq. 3.2 Ma et al
+            #limit_kk_Rvir.py tests the limit of Rvir. 
             rp = np.linspace(0, 5 * Rvir, 100)
             for tr in rp:
                 if tr == 0:
@@ -343,10 +344,13 @@ def integrate_splell(larr_spl, cl_spl, theta_rad, dl):
     return xi *dl / 2 /np.pi
 
 
-def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_distribution.txt', kk=False, yy=False, ky=True):
+def wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=False, yy=False, ky=True):
     '''
     Compute tSZ halomodel from the given mass and redshift
     '''
+    fwhm = fwhm * np.pi / 2.355 / 60. /180. #angle in radian
+    fwhmsq = fwhm * fwhm
+
     cosmo0 = CosmologyFunctions(0)
     omega_b0 = cosmo0._omega_b0
     omega_m0 = cosmo0._omega_m0
@@ -394,7 +398,7 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_dis
     rho_norm0 = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
-    zarr = np.linspace(0.05, 2., 50)
+    zarr = np.linspace(0.05, 1., 50)
     BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], []
     bias, Darr = [], []
     mf = []
@@ -422,8 +426,8 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_dis
     Darr = np.array(Darr)
     print mf.shape
 
-    ellarr = np.linspace(1, 10001, 10)
-    #ellarr = np.logspace(0, np.log10(10001), 50)
+    ellarr = np.linspace(1, 5001, 500)
+    ellarr = np.logspace(0, np.log10(5001), 100)
     cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
         pk = pkspl(ell/chiarr)
@@ -438,9 +442,11 @@ def wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_dis
         cl2h_arr.append(cl2h)
         print ell, cl1h, cl2h, cl
 
-    cl = np.array(cl_arr)
-    cl1h = np.array(cl1h_arr)
-    cl2h = np.array(cl2h_arr)
+    convolve = np.exp(-1 * fwhmsq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
+    cl = np.array(cl_arr) * convolve
+    cl1h = np.array(cl1h_arr) * convolve
+    cl2h = np.array(cl2h_arr) * convolve
+    
     if ky:
         np.savetxt('cl_ky.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
     if kk:
@@ -500,7 +506,7 @@ if __name__=='__main__':
     #Stop
 
     if 1:
-        wl_tsz_model(compute, fwhm, rmin, rmax, space, logr=True, zsfile='source_distribution.txt', kk=0, yy=0, ky=1)
+        wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=1, yy=0, ky=0)
     
     if 0:
         z = 0.01
