@@ -126,7 +126,7 @@ def df_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
     return (frac * rho_critical * Rfrac**2.) - (rho_s * Rs**3) * (Rfrac / (Rs + Rfrac)**2.)
 
 @jit(nopython=True)
-def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h):
+def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.0):
     '''Convert Mvir in solar mass to Rvir in Mpc, M200 in solar mass 
        R200 in Mpc
     '''
@@ -138,7 +138,6 @@ def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h):
     Rs = Rvir / conc
 
     tolerance = 1e-6
-    frac = 200.0
 
     # Using Newton - Raphson method. x1 = x0 - f(x0) / f'(x0) where x0 is
     # the initial guess, f and f' are the function and derivative
@@ -170,8 +169,9 @@ def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_
     #It seems R200 is in the physical distance, i.e. proper distance
     #Need to multiplied by (1+z) to get the comoving unit as I am giving r in
     #comoving unit.
-    R200 *= (1. + z) #Comoving radius 
-    r = x * (1. + z) * Rs
+    #R200 *= (1. + z) #Comoving radius 
+    #r = x * (1. + z) * Rs
+    r = x * Rs
     x = r / R200 
     #print Mvir, M200, R200
     msolar = 1.9889e30 #kg
@@ -191,6 +191,39 @@ def battaglia_profile(x, Rs, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_
     #Joule = kg m^2 / s^2, Joule = 6.24e18 eV = 6.24e15 keV
     pth *= (msolar * 6.24e15 * 1e6 / mpc2cm**3) #keV/cm^3. 1e6 implies that I have converted km to m
     p_e = pth * 0.518 #For Y=0.24, Vikram, Lidz & Jain
+    return p_e
+
+@jit(nopython=True)
+def ks2002(x, Mvir, Rvir, Rs, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
+    '''
+    Output is pgas3d in unit of keV/cm^3
+    '''
+    conc = Rvir / Rs
+    #Eq. 18    
+    eta0 = 2.235 + 0.202 * (conc - 5.) - 1.16e-3 * (conc - 5.)**2
+    #Eq. 17
+    gamma = 1.137 + 8.94e-2 * np.log(conc/5.) - 3.68e-3 * (conc - 5.)
+    #Eq. 16
+    B = 3 / eta0 * (gamma - 1.) / gamma / (np.log(1.+conc) / conc - 1./(1.+conc))
+    #print conc, gamma, eta0, B
+    #Eq. 15
+    ygasc = (1. - B *(1. - np.log(1.+conc) / conc))**(1./(gamma-1.))
+    #Eq. 21 of KS 2002
+    rhogas0 = 7.96e13 * (omega_b0 * cosmo_h * cosmo_h/omega_m0) * (Mvir*cosmo_h/1e15)/ Rvir**3 / cosmo_h**3 * conc * conc / ygasc / (1.+conc)**2/(np.log(1.+conc)-conc/(1.+conc)) #In the CRL code it is multiplied by square of conc. However, I think it should be multiplied by only with concentration
+    #Eq. 19
+    Tgas0 = 8.80 * eta0 * Mvir / 1e15 / Rvir #keV. This is really kBT
+    Pgas0 = 55.0 * rhogas0 / 1e14 * Tgas0 / 8.
+
+    #x = 8.6e-3
+    pgas3d = Pgas0 * (1. - B *(1. - np.log(1.+x) / x))**(gamma/(gamma-1.))
+    #print x,gamma, eta0, B, Pgas0, (1. - B *(1. - np.log(1.+x) / x))**(gamma/(gamma-1.)), pgas3d    pgas2d = 0.0
+    #txarr = np.linspace(x, 5*Rvir/Rs, 100)
+    #for tx in txarr:
+    #    if tx <= 0:
+    #        continue
+    #    pgas2d += (1. - B *(1. - np.log(1.+tx) / tx))**(gamma/(gamma-1.))
+    #pgas2d = 2. * Pgas0 * pgas2d * (txarr[1] - txarr[0])
+    p_e = pgas3d*0.518*1e-3 #keV/cm^3
     return p_e
 
 @jit(nopython=True)
@@ -278,7 +311,45 @@ def integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
     return cl1h, cl2h, cl
  
 @jit(nopython=True)
-def integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+def integrate_yyhalo1(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty):
+    '''
+    Eq. 3.1 Ma et al. 
+    '''
+
+    dz = zarr[1] - zarr[0]
+    cl1h = 0.0
+    cl2h = 0.0
+    mfj = 0
+    for i, zi in enumerate(zarr):
+        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        mint = 0.0
+        my2 = 0.0
+        for mi in marr:
+            yint = 0.0
+            Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            #Eq. 3.3 Ma et al
+            xmax = 5 * Rvir / Rs / (1. + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir. I didn't divided by 1+z because Battaglia model is calculated in comoving radial coordinate 
+            N = np.int(xmax / 0.5)
+            xp = np.linspace(0, xmax, N)
+            ells = chiarr[i] / (1. + zi) / Rs
+            for x in xp:
+                if x == 0:
+                    continue
+                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile(x, Rs, mi, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+            yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
+            mint += (dlnm * mf[mfj] * yint * yint)
+            my2 += (dlnm * bias[mfj] * mf[mfj] * yint)
+            mfj += 1
+        cl1h += (dVdzdOm[i] * consty * consty * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * consty * consty * my2 * my2)
+    cl1h *= dz
+    cl2h *= dz
+    cl = cl1h + cl2h
+    return cl1h, cl2h, cl
+
+
+@jit(nopython=True)
+def integrate_batt_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
@@ -295,14 +366,26 @@ def integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
             yint = 0.0
             Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
             #Eq. 3.3 Ma et al
-            xmax = 5 * Rvir / Rs / (1. + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir. I didn't divided by 1+z because Battaglia model is calculated in comoving radial coordinate 
-            xp = np.linspace(0, xmax, 20)
+            ##xmax = 4 * Rvir / Rs / (1. + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir. I didn't divided by 1+z because Battaglia model is calculated in comoving radial coordinate 
+            ##N = np.int(xmax / 0.05)
+            ##xp = np.linspace(0, xmax, N)
+            Rmax = 4. * Rvir
+            if mi < 5e12:
+                N = np.int(Rmax / 0.01)
+            else:
+                N = np.int(Rmax / 0.1)
+            rp = np.linspace(0, Rmax, N)
+            xarr = rp / Rs
             ells = chiarr[i] / (1. + zi) / Rs
-            for x in xp:
+            for x in xarr:
+                #x =  tr / Rs #/ (1. + zi)
+            #for x in xp:
                 if x == 0:
                     continue 
                 yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile(x, Rs, mi, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
-            yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
+                #yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * ks2002(x, mi, Rvir, Rs, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+            #yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
+            yint *= (4 * np.pi * Rs * (xarr[1] - xarr[0]) / ells / ells)
             mint += (dlnm * mf[mfj] * yint * yint)
             my2 += (dlnm * bias[mfj] * mf[mfj] * yint)
             mfj += 1
@@ -313,6 +396,51 @@ def integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
     cl = cl1h + cl2h
     return cl1h, cl2h, cl
  
+
+@jit(nopython=True)
+def integrate_ks_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+    '''
+    Eq. 3.1 Ma et al. 
+    '''    
+   
+    dz = zarr[1] - zarr[0]
+    cl1h = 0.0
+    cl2h = 0.0
+    mfj = 0
+    for i, zi in enumerate(zarr):
+        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        mint = 0.0
+        my2 = 0.0
+        for mi in marr:
+            yint = 0.0
+            Mfrac, Rfrac, rho_s, Rs, Rvir = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            #Eq. 3.3 Ma et al
+            ##xmax = 4 * Rvir / Rs / (1. + zi) #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir. I didn't divided by 1+z because Battaglia model is calculated in comoving radial coordinate 
+            ##N = np.int(xmax / 0.05)
+            ##xp = np.linspace(0, xmax, N)
+            Rmax = 4. * Rvir
+            N = np.int(Rmax / 0.1)
+            rp = np.linspace(0, Rmax, N)
+            ells = chiarr[i] / (1. + zi) / Rs
+            for tr in rp:
+                x =  tr / Rs / (1. + zi)
+            #for x in xp:
+                if x == 0:
+                    continue 
+                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * ks2002(x, mi, Rvir, Rs, zi, BDarr[i], rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+            #yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
+            yint *= (4 * np.pi * Rs * (rp[1] - rp[0]) / Rs / (1. + zi) / ells / ells)
+            mint += (dlnm * mf[mfj] * yint * yint)
+            my2 += (dlnm * bias[mfj] * mf[mfj] * yint)
+            mfj += 1
+        cl1h += (dVdzdOm[i] * consty * consty * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * consty * consty * my2 * my2)
+    cl1h *= dz
+    cl2h *= dz
+    cl = cl1h + cl2h
+    return cl1h, cl2h, cl
+ 
+
 
 
 @jit(nopython=True)
@@ -360,7 +488,7 @@ def wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=False, yy=F
     mpctocm = 3.085677581e24
     kB_kev_K = 8.617330e-8 #keV k^-1
     sigma_t_cm = 6.6524e-25 #cm^2
-    rest_electron_kev = 511 #keV
+    rest_electron_kev = 511. #keV
     constk = 3. * omega_m0 * (cosmo_h * 100. / light_speed)**2. / 2. #Mpc^-2
     consty = mpctocm * sigma_t_cm / rest_electron_kev 
 
@@ -372,8 +500,9 @@ def wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=False, yy=F
 
     kmin = 1e-4 #1/Mpc
     kmax = 1e4
-    mmin = 1e10
-    mmax = 1e16
+    #mmin = 1e10
+    mmin = 1e11
+    mmax = 5e15
     dlnk = np.float64(np.log(kmax/kmin) / 100.)
     lnkarr = np.linspace(np.log(kmin), np.log(kmax), 100)
     karr = np.exp(lnkarr).astype(np.float64)
@@ -398,7 +527,7 @@ def wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=False, yy=F
     rho_norm0 = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
-    zarr = np.linspace(0.05, 1., 50)
+    zarr = np.linspace(0.01, 1.2, 50)
     BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], []
     bias, Darr = [], []
     mf = []
@@ -418,16 +547,19 @@ def wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=False, yy=F
     rhobarr = np.array(rhobarr)
     chiarr = np.array(chiarr)
     dVdzdOm = np.array(dVdzdOm) * chiarr * chiarr
+    #for i, j in zip(zarr, dVdzdOm):
+    #    print i, j
+    #sys.exit()
     rho_crit_arr = np.array(rho_crit_arr)
     mf = np.array(mf).flatten()
     zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
     chisarr = zchispl(zsarr)
     bias = np.array(bias).flatten()
     Darr = np.array(Darr)
-    print mf.shape
+    print len(zarr) * len(marr), mf.shape
 
-    ellarr = np.linspace(1, 5001, 500)
-    ellarr = np.logspace(0, np.log10(5001), 100)
+    ellarr = np.linspace(1, 10001, 20)
+    #ellarr = np.logspace(0, np.log10(5001), 100)
     cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
         pk = pkspl(ell/chiarr)
@@ -436,7 +568,8 @@ def wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=False, yy=F
         if kk:
             cl1h, cl2h, cl = integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
         if yy:
-            cl1h, cl2h, cl = integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+            cl1h, cl2h, cl = integrate_batt_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+            #cl1h, cl2h, cl = integrate_ks_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
@@ -506,7 +639,7 @@ if __name__=='__main__':
     #Stop
 
     if 1:
-        wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=1, yy=0, ky=0)
+        wl_tsz_model(compute, fwhm, zsfile='source_distribution.txt', kk=0, yy=1, ky=0)
     
     if 0:
         z = 0.01
