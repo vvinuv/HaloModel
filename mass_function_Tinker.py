@@ -32,7 +32,7 @@ def halo_bias_st(sqnu):
     return 1+blag #b_eul
  
 
-def bias_mass_func(redshift, lM200, uM200, mspace, bias=True):
+def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True):
     '''
     Wrote on Jan 26, 2017
 
@@ -42,9 +42,12 @@ def bias_mass_func(redshift, lM200, uM200, mspace, bias=True):
     mspace : mass space
     bias : if weighted by ST bias (Doesn't work now)
 
-    mass function in dn/dlnM200 in 1/Mpc^3
-
     M200 -solar unit
+
+    Both the output have no little h
+    mass function in dn/dlnM200 in 1/Mpc^3
+    marr solar unit 
+
     '''
 
     cosmo0 = CosmologyFunctions(0)
@@ -97,13 +100,13 @@ if __name__=='__main__':
     '''
     Compute mass function
     '''
-    redshift = 1
-    marr, mf, S, fs = bias_mass_func(redshift, 1e8, 1e16, 100, bias=False)
+    redshift = 0.5
+    marr, mf, S, fs = bias_mass_func_tinker(redshift, 1e8, 1e16, 100, bias=False)
     #pl.plot(np.log10(1/S), np.log10(fs))
     #pl.show()
     #pl.loglog(marr*0.7, mf*0.71**3, label='Vinu')
     pl.loglog(marr, mf, label='Vinu')
-    f = np.genfromtxt('hmf/mVector_PLANCK-SMT z: 1.0.txt')
+    f = np.genfromtxt('hmf/mVector_PLANCK-SMT z: 0.5.txt')
     pl.loglog(f[:,0]/0.71, f[:,6]*0.71**3, label='HMF')
     #com = np.genfromtxt('/media/luna1/vinu/software/cosmosis/mft_output/mass_function/m_h.txt')
     #comf = np.genfromtxt('/media/luna1/vinu/software/cosmosis/mft_output/mass_function/dndlnmh.txt')[9]
