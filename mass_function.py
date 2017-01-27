@@ -4,8 +4,9 @@ import numpy as np
 import pylab as pl
 from cosmology_vinu import CosmologyFunctions
 from scipy.interpolate import InterpolatedUnivariateSpline
-
-class MassFunction:
+from convert_NFW_RadMass import MvirToMRfrac, MfracToMvir
+ 
+class MassFunctionSingle:
     '''
     This class consists of mass function  and halo bias 
     Eqs. 56-59 of Cooray & Sheth 2002
@@ -117,6 +118,164 @@ class MassFunction:
             return 
 
 
+def halo_bias_st(sqnu):
+    '''
+    Eq. 8 in Sheth et al 2001
+    '''
+    common = 1./np.sqrt(0.707)/1.686
+    fterm = np.sqrt(0.707) * 0.707 * sqnu #First term
+    sterm = np.sqrt(0.707) * 0.5 * (0.707 * sqnu)**(1.-0.6) #second term
+    ttermn = (0.707 * sqnu)**0.6 #numerator of third term
+    ttermd = (0.707 * sqnu)**0.6 + 0.5 * (1.-0.6) * (1.-0.6/2.) #demoninator of third term
+    tterm = ttermn / ttermd #third term
+    blag = common * (fterm + sterm - tterm) #b_lag
+    return 1+blag #b_eul
+
+
+def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True):
+    '''
+    Sheth & Torman 1999 & Eq. 56-50 of CS02 in p21
+    Output:
+         MF = dn/dlnMvir (1/Mpc^3)
+         mass = Solar mass
+    '''
+    cosmo0 = CosmologyFunctions(0)
+    cosmo_h = cosmo0._h
+
+    dlnm = np.float64(np.log(uMvir/lMvir) / mspace)
+    lnmarr = np.linspace(np.log(lMvir), np.log(uMvir), mspace)
+    marr = np.exp(lnmarr).astype(np.float64)
+    #print 'dlnm ', dlnm
+
+    #No little h
+    #Need to give mass * h and get the sigma without little h
+    sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
+    rho_norm0 = cosmo0.rho_bar()
+    #print marr, sigma_m0
+    lnMassSigma0Spl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
+
+    cosmo = CosmologyFunctions(redshift)
+
+    mf,nuarr,fnuarr = [],[],[]
+    for m in marr:
+        mlow = m * 0.99
+        mhigh = m * 1.01
+        mass_array = np.logspace(np.log10(mlow), np.log10(mhigh), 2)
+        ln_mass_array = np.log(mass_array)
+        ln_sigma_m_array = np.log(np.array([lnMassSigma0Spl(np.log(m1)) for m1 in mass_array]))
+
+        #Derivatives of dln_nu/dln_mass at ln_mass
+        lnSigma_m_lnM_derivative = abs((ln_sigma_m_array[1] - ln_sigma_m_array[0]) / (ln_mass_array[1] - ln_mass_array[0]))#1 for first derivate
+
+        nu = cosmo.nu_m(m)
+        nusq = np.sqrt(nu)
+ 
+        #This is (delta_c/sigma(m))^2. Here delta_c is slightly dependence on 
+        #Omega_m across redshift. cosmo._growth is the growth fucntion
+        #This means delta_c increases as a function of redshift
+        #lnMassSigmaSpl returns the sigma(m) at z=0 when gives the log(Mvir) 
+        delta_c_sigma_m2 = cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigma0Spl(np.log(m)) / lnMassSigma0Spl(np.log(m))
+        nu_d = 0.707 * delta_c_sigma_m2
+        nuf_1 = (1. + 1. / nu_d**0.3)
+        nuf_2 = (2. * nu_d)**0.5
+        nuf_3 = np.exp(-nu_d / 2.) / np.sqrt(np.pi)
+        nuf = 0.322 * nuf_1 * nuf_2 * nuf_3
+
+        if bias:
+            mf.append(halo_bias_st(delta_c_sigma_m2) * nuf * rho_norm0 * cosmo._h * cosmo._h * lnSigma_m_lnM_derivative / m)
+        else:
+            mf.append(nuf * rho_norm0 * cosmo._h * cosmo._h * lnSigma_m_lnM_derivative / m)
+    mf = np.array(mf) 
+    return marr, mf
+
+
+def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True):
+    '''
+    Wrote on Jan 26, 2017
+
+    redshift : Redshift of mass function
+    lM200 : Lower limit of M200
+    uM200 : Upper limit of M200
+    mspace : mass space
+    bias : if weighted by ST bias (Doesn't work now)
+
+    M200 -solar unit
+
+    Both the output have no little h
+    mass function in dn/dlnM200 in 1/Mpc^3
+    marr solar unit 
+
+    '''
+
+    cosmo0 = CosmologyFunctions(0)
+    cosmo_h = cosmo0._h
+
+    dlnm = np.float64(np.log(uM200/lM200) / mspace)
+    lnmarr = np.linspace(np.log(lM200), np.log(uM200), mspace)
+    marr = np.exp(lnmarr).astype(np.float64)
+    #print 'dlnm ', dlnm
+
+    #No little h
+    #Need to give mass * h and get the sigma without little h
+    sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
+    rho_norm0 = cosmo0.rho_bar()
+    #print marr, sigma_m0
+
+    cosmo = CosmologyFunctions(redshift)
+    lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0*cosmo._growth, k=3)
+    A = 0.186 * (1. + cosmo.redshift())**-0.14
+    a = 1.47 * (1. + cosmo.redshift())**-0.06
+    alpha = 10**(-(0.75/np.log10(200./75.))**1.2)
+    b = 2.57   * (1. + cosmo.redshift())**-alpha
+    c = 1.19
+
+    mf,sarr,fsarr = [],[],[]
+    for M200 in marr:
+        mlow = M200 * 0.99
+        mhigh = M200 * 1.01
+        slow = lnMassSigmaSpl(np.log(mlow))
+        shigh = lnMassSigmaSpl(np.log(mhigh))
+        ds_dm = (shigh - slow) / (mhigh - mlow)
+        sigma = lnMassSigmaSpl(np.log(M200))
+        #print '%.2e %.2f %.2e'%(M200, sigma, ds_dm)
+
+        fsigma = A * np.exp(-c / sigma**2.) * ((sigma/b)**-a + 1.)
+        #print '%.2e %.2e %.2f %.2f %.2f %.2f %.2f'%(M200, fsigma, A, a, b, c, sigma)
+        mf.append(-1 * fsigma * rho_norm0 * cosmo._h * cosmo._h * ds_dm / sigma)
+        sarr.append(sigma)
+        fsarr.append(fsigma)
+
+    mf = np.array(mf)
+    sarr = np.array(sarr)
+    fsarr = np.array(fsarr)
+    if 0:
+        return mass_function * halo_bias_st(delta_c_sigma_m2), sigma, fsigma
+    else:
+        return marr, mf, sarr, fsarr
+
 if __name__=='__main__':
-    mf = MassFunction(1e15, 1, 0, mf='ST99')
-    print mf.massfunction()
+    mf = []
+    redshift = 1.
+    mlow = 1e11
+    mhigh = 1e16
+    mspace = 100
+    marr = np.logspace(np.log10(mlow), np.log10(mhigh), mspace)
+    #for m in marr:
+    #    mf.append(MassFunctionSingle(m, redshift, 0, mf='ST99').massfunction())
+
+    #pl.loglog(marr, mf, label='Class')
+    marr, mf = bias_mass_func_st(redshift, mlow, mhigh, mspace, bias=True)
+    pl.loglog(marr, mf, label='Function')
+
+    M200 = []
+    cosmo = CosmologyFunctions(redshift)
+    cosmo_h = cosmo._h
+    BryanDelta = cosmo.BryanDelta() 
+    rho_critical = cosmo.rho_crit() * cosmo_h * cosmo_h
+    for m in marr:
+        M200.append(MvirToMRfrac(m, redshift, BryanDelta, rho_critical, cosmo_h, frac=200.0)[2])
+    M200 = np.array(M200)
+    marr, mf, sarr, fsarr = bias_mass_func_tinker(redshift, M200.min(), M200.max(), mspace)
+    pl.loglog(marr, mf, label='Tinker')
+    pl.legend(loc=0)
+    pl.show()
