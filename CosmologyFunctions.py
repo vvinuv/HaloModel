@@ -59,7 +59,7 @@ class CosmologyFunctions:
         #For some reason H0 = 100 km/(s Mpc). 
         #However, h = 0.7 by using experiment. 
         #Therefore, H0/c = 100 Mpc^(-1). Since we need to 
-        #write it in terms of experimatally varified 'h' 
+        #write it in terms of experimatally varyfied 'h' 
         #then H0/c = 100 * h Mpc^(-1) = 70 Mpc^(-1)
         self.H0 = 100.0/(2.998*10**5)  # H0 / c in h Mpc^(-1)
 
@@ -608,8 +608,11 @@ class CosmologyFunctions:
 
 
 if __name__=='__main__':
-    redshift = 1.0
+    redshift = 3.0
     cosmo = CosmologyFunctions(redshift)
+    print cosmo.omega_m()
+    print '%.3e'%((cosmo.E(redshift)/cosmo._h) * cosmo.comoving_distance()**2/cosmo._h**2)
+    sys.exit()
     kmin = 1e-4
     kmax = 1e4
     dlnk = np.float64(np.log(kmax/kmin) / 100.)
