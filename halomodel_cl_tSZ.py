@@ -15,7 +15,7 @@ import numba as nb
 import timeit
 #import fastcorr
 from CosmologyFunctions import CosmologyFunctions
-from mass_function import bias_mass_func_tinker
+from mass_function import bias_mass_func_tinker, bias_mass_func_bocquet
 from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200
  
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
@@ -144,7 +144,7 @@ if __name__=='__main__':
     consty = mpctocm * sigma_t_cm / rest_electron_kev #This is to convert preesure to tSZ
 
     mmin = 1e11
-    mmax = 5e15
+    mmax = 5e16
     mspace = 50
 
     dlnm = np.float64(np.log(mmax/mmin) / mspace)
@@ -172,21 +172,8 @@ if __name__=='__main__':
         chiarr.append(cosmo.comoving_distance() / cosmo._h)
         hzarr.append(cosmo.E0(zi))
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
-        m200arr = []
-        for m in marr:
-            #print MfracTomMFrac(m, zi, 200, cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)
-            #print '%.2e %.2e'%(cosmo.rho_crit(), cosmo.rho_bar())
-            #m200arr.append(MvirTomMRfrac(m, zi, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)[2])
-            Ma = MfracTomMFrac(m, zi, 200, cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)[2]
-            m200arr.append(Ma)
-            print '%.2e %.2e '%(m, Ma), dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., Ma, m, zi, cosmo_h)
-            dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m() * cosmo._h * cosmo._h, 200. * cosmo._h * cosmo._h, Ma, m, zi, cosmo_h))
-            #print '%.2e %.2e'%(m, MvirToMRfrac_m(m, zi, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)[2])
-            sys.exit()
-        m200arr = np.array(m200arr)
-        m200arr_w_h = m200arr*cosmo._h
-        #print np.log(m200arr_w_h[1:]/m200arr_w_h[:-1])
-        mf.append(bias_mass_func_tinker(zi, m200arr_w_h.min(), m200arr_w_h.max(), mspace, bias=False, marr=m200arr_w_h)[1])
+        #mf.append(bias_mass_func_tinker(zi, m200arr_w_h.min(), m200arr_w_h.max(), mspace, bias=False, marr=m200arr_w_h)[1])
+        mf.append(bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1])
         rho_crit_arr.append(cosmo.rho_crit() * cosmo._h * cosmo._h) #OK
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
@@ -198,7 +185,7 @@ if __name__=='__main__':
     rho_crit_arr = np.array(rho_crit_arr)
     mf = np.array(mf).flatten()
     Darr = np.array(Darr)
-    dlnmdlnm = abs(np.array(dlnmdlnm))
+    dlnmdlnm = np.ones(mf.size)
     bias = np.array(bias).flatten()
 
     ellarr = np.array([200, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 1e4])
