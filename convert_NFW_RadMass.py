@@ -288,3 +288,5 @@ if __name__=='__main__':
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracToMfrac(Mfrac, z, BryanDelta, 400, rho_critical, cosmo_h, frac=200.0)
     print '%.2e %.2e %.2e %.2e %.2e %.2e'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
 
+    Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)
+    print '%.2e %.2e %.2e %.2e %.2e %.2e'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)

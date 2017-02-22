@@ -675,15 +675,21 @@ def bias_mass_func(Mvir, cosmo, lnMassSigmaSpl, rho_norm, ST99=True, bias=True):
         return mass_function
         #return anst
 
-
 @jit((nb.float64)(nb.float64, nb.float64),nopython=True)
-def concentration(Mvir, cosmo_h):
+def concentration_maccio(Mvir, cosmo_h):
     '''Maccio 07 - Eq. 8. I also found that it is only within 1e9 < M < 5e13.
        What is this Delta_vir=98 in page 57
     '''
     Mvir = Mvir / cosmo_h
     conc = 10**(1.02 - 0.109 * (np.log10(Mvir) - 12.))
     return conc
+
+@jit((nb.float64)(nb.float64, nb.float64, nb.float64),nopython=True)
+def concentration_duffy(Mvir, z, cosmo_h):
+    '''Duffy 2008'''
+    conc = (5.72 / (1. + z)**0.71) * (Mvir * cosmo_h / 1e14)**-0.081
+    return conc
+
 
 @jit((nb.float64)(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
 def f_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
@@ -693,19 +699,19 @@ def f_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
 def df_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
     return (frac * rho_critical * Rfrac**2.) - (rho_s * Rs**3) * (Rfrac / (Rs + Rfrac)**2.)
 
-@jit(nb.typeof((1.0,1.0))(nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
-def MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h):
+@jit(nopython=True)
+def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.):
     '''Convert Mvir in solar mass to Rvir in Mpc, M200 in solar mass 
        R200 in Mpc
     '''
-    conc = concentration(Mvir, cosmo_h)
+    #conc = concentration_maccio(Mvir, cosmo_h)
+    conc = concentration_duffy(Mvir, z, cosmo_h)
     #print Mvir, conc
     Rvir = (Mvir / ((4 * np.pi / 3.) * BryanDelta * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
     Rs = Rvir / conc
 
     tolerance = 1e-6
-    frac = 200.0
 
     # Using Newton - Raphson method. x1 = x0 - f(x0) / f'(x0) where x0 is
     # the initial guess, f and f' are the function and derivative
@@ -723,7 +729,7 @@ def MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h):
     Rfrac = x1
     Mfrac = (4. / 3.) * np.pi * Rfrac**3 * frac * rho_critical
     #print Mvir, Mfrac, Rvir, Rfrac
-    return Mfrac, Rfrac 
+    return Mfrac, Rfrac, rho_s, Rs, Rvir
 
 @jit((nb.float64)(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64, nb.float64), nopython=True)
 def battaglia_profile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h):
@@ -733,7 +739,7 @@ def battaglia_profile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, 
     Retrun: 
         Pressure profile in keV/cm^3 at radius r
     '''
-    M200, R200 = MvirToMRfrac(Mvir, BryanDelta, rho_critical, cosmo_h)
+    M200, R200, rho_s, Rs, Rvir = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
     #It seems R200 is in the physical distance, i.e. proper distance
     #Need to multiplied by (1+z) to get the comoving unit as I am giving r in
     #comoving unit.
@@ -1023,13 +1029,14 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
     xi1hsm, xi2hsm, xism = f[:,4], f[:,5], f[:,6]
 
     if plot3d: 
-        f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/twop_press_test_2')
+        f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/twop_press_test_z1_m1e15')
         pl.loglog(rarr, xi1h, c='r', label='1halo-Vinu')
         pl.loglog(rarr, xi2h, c='g', label='2halo-Vinu')
         pl.loglog(rarr, xi, c='k', label='Total-Vinu')
         pl.loglog(f[:,0], f[:,1], c='r', ls='--', label='1halo-Adam')
         pl.loglog(f[:,0], f[:,2], c='g', ls='--', label='2halo-Adam')
         pl.legend(loc=0)
+        pl.title('3d')
         pl.xlabel('r (Mpc)')
         pl.ylabel(r'$\xi_{y,g}(r)$')
         pl.savefig('compareAdamVinu3d.pdf', bbox_inches='tight')
@@ -1118,9 +1125,9 @@ def tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3
 
 if __name__=='__main__':
     #Write variables
-    redshift = 2.0 #Redshift of the halo
-    Mass = 2e14 #mass of the halo
-    compute = 1 #Whether the profile should be computed 
+    redshift = 1.0 #Redshift of the halo
+    Mass = 1e15 #mass of the halo
+    compute = 0 #Whether the profile should be computed 
     fwhm = 10 #arcmin Doesn't work now
     rmin = 1e-2 #Inner radius of pressure profile 
     rmax = 1e2 #Outer radius of pressure profile
@@ -1162,10 +1169,10 @@ if __name__=='__main__':
         mf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=0) for m in marr])
         bmf = np.array([bias_mass_func(m, cosmo, lnMassSigmaSpl, rho_norm0, ST99=True, bias=1) for m in marr])
         np.savetxt('%.1f.txt'%redshift, np.transpose((marr, mf, bmf)))
-        #f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/amass_integrand_test_%.f'%redshift)
-        #pl.scatter(f[:,1], f[:,3], c='r', label='Adam bias MF')
-        #pl.loglog(marr, mf)
-        #pl.show()
+        f = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/amass_integrand_test_%.1f'%redshift)
+        pl.scatter(f[:,1], f[:,3], c='r', label='Adam bias MF')
+        pl.loglog(marr, mf)
+        pl.show()
         sys.exit()
     if 0:
         cosmo = CosmologyFunctions(redshift)
@@ -1182,5 +1189,5 @@ if __name__=='__main__':
         #pl.loglog(karr, pk_arr)
         #pl.show()
         sys.exit()
-    tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=False, plot_proj=False, plot_mf=False, plot_press_battaglia=False)
+    tsz_model(redshift, Mass, compute, fwhm, rmin, rmax, space, logr=True, plot3d=1, plot_proj=True, plot_mf=False, plot_press_battaglia=False)
 
