@@ -12,9 +12,8 @@ from numba import double, float64, float32
 from numba import jit
 import numba as nb
 import timeit
-import cosmology_vinu as cosmology
 #import fastcorr
-from halomodel_tSZ import CosmologyFunctions
+from CosmologyFunctions import CosmologyFunctions
  
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
@@ -51,28 +50,30 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h):
 
     M1 is corresponds to delta1 definition 
     '''
-    print delta, delta1, M, M1,z
+    #print delta, delta1, M, M1,z
     a1 = 0.5116
     a2 = -0.4283
     a3 = -3.13e-3
     a4 = -3.52e-5
-    conc = concentration_duffy_200(M1, z, cosmo_h)
-    A = np.log(1.+conc) - conc / (1. + conc)
-    f = (delta / delta1) * (1./conc**3) * A
+    Delta = delta / delta1
+    #conc = concentration_duffy_200(M1, z, cosmo_h)
+    conc = concentration_duffy(M1, z, cosmo_h)
+    A = np.log(1.+conc) - 1. + 1. / (1. + conc)
+    f = Delta * (1./conc**3) * A
     p = a2 + a3 * np.log(f) + a4 * np.log(f)**2
     x = (a1 * f**(2.*p) + 0.75**2.)**(-0.5) + 2. * f
-    B = -0.084
-    t1 = (delta / delta1) * (1./x/conc)**3.
-    t21 = 2. - a1 * p * f**(2*p-1) * (a1 * f**(2*p) + 0.75**2)**-1.5
-    t22 = (-3. * f / conc) + f * (1./(1.+conc) - 1./(1.+conc)**2) / A
-    t2 = (delta / delta1) * B * conc * (-3. / (conc*x)**4) * (x + conc * t21 * t22)
+    B = -0.081
+    t31 = Delta / conc**2 * (1./(1. + conc) - 1./(1. + conc)**2.) - 3. * Delta * A / conc**3.
+    t32 = 2. - p * a1 * f**(2*p-1.) * (a1 * f**(2*p) + 0.75**2.)**-1.5
+    dMdM1 = Delta / (conc * x)**3 * (1. - 3 * B / x * (x + t31 * t32))
+
     #print conc, f, p, x, t1, t2
     ##t21 = 1./conc**3 * (2./(1. + conc) - conc / (1. + conc)**2.)
     ##t22 = (3. / conc**4) * (np.log(1. + conc) + conc / (1. + conc))
     ##t2 = t2 * (t21 - t22)
     ##t21 = -3 * f / conc + f / A * (1./(1.+conc) - 1./(1.+conc)**2.)
     #print t2, t21, t22
-    dlnMdlnM1 = (M1/M) * (t1 + t2)
+    dlnMdlnM1 = (M1/M) * dMdM1
     return dlnMdlnM1
 
 @jit(nopython=True)
@@ -113,9 +114,9 @@ def MvirTomMRfrac(Mvir, z, BryanDelta, rho_critical, rho_bar, cosmo_h, frac=200.
 
     tolerance = 1e-6
     # Intial guess is Rvir / 2. 
-    x0 = Rvir / 2.0
+    x0 = Rs * 1.1
     tol = Rvir * tolerance #tolerance
-    x1 = 2 * Rvir #tol * 10**6
+    x1 = 1 * Rvir #tol * 10**6
     #print 1, x0, x1
     while abs(x0 - x1) > tol:
         #print abs(x0 - x1), tol
@@ -142,9 +143,9 @@ def MfracTomMFrac(Mfrac, z, frac2, rho_critical, rho_bar, cosmo_h, frac=200.0):
 
     tolerance = 1e-6
     # Intial guess is Rfrac
-    x0 = Rfrac/2 
+    x0 = Rfrac/2. 
     tol = Rfrac * tolerance #tolerance
-    x1 = Rfrac *2 #tol * 10**6
+    x1 = Rfrac *2. #tol * 10**6
     #print 1, x0, x1, abs(x0 - x1), tol
     while abs(x0 - x1) > tol:
         #print abs(x0 - x1), tol
@@ -267,8 +268,13 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
     #print Mvir, Mfrac, Rvir, Rfrac
     return Mf, Rf, Mfrac, Rfrac, rho_s, Rs
 
-
-
+@jit(nopython=True)
+def HuKravtsov(Mvir, z, cosmo_h, delta, deltav):
+    c = concentration_duffy(Mvir, z, cosmo_h) 
+    y = (delta/deltav)**(1./3.)
+    numerator = -3. * (c+y) * (c - c * y + (1.+c)*(c+y)*np.log(1+c) - (1.+c)*(c+y)*np.log(1.+c/y))
+    demominator = 3.*(1.+c)*(c+y)**2*np.log(1.+c) - c*(c+4*c**2+6*c*y+3*y**2)
+    return Mvir * (1. + numerator / demominator)
 
 if __name__=='__main__':
     z=1.0
