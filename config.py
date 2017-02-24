@@ -4,39 +4,22 @@ the precision of all modules within the code.
 """
 ### parameters specifying a cosmology.
 default_cosmo_dict = {
-    "omega_m0": 0.25, #0.278 - 4.15e-5/0.7**2, ### total matter density at z=0
-    "omega_b0": 0.043, #0.046, ### baryon density at z=0
-    "omega_l0": 0.75, #0.722, ### dark energy density at z=0
+    "omega_m0": 0.264, #0.278 - 4.15e-5/0.7**2, ### total matter density at z=0
+    "omega_b0": 0.04448, #0.046, ### baryon density at z=0
+    "omega_l0": 0.736, #0.722, ### dark energy density at z=0
     "omega_r0": 0., #4.15e-5/0.7**2, ### radiation density at z=0
     "cmb_temp": 2.726, ### temperature of the CMB in K at z=0
-    "h"       : 0.7, ### Hubble's constant at z=0 normalized to 1/100 km/s/Mpc
+    "h"       : 0.71, ### Hubble's constant at z=0 normalized to 1/100 km/s/Mpc
     "sigma_8" : 0.8, ### over-density of matter at 8.0 Mpc/h
-    "n_scalar": 0.96, #0.9624, ### large k slope of the power spectrum
+    "n_scalar": 0.963, #0.9624, ### large k slope of the power spectrum
     "w0"      : -1.0, ### dark energy equation of state at z=0
     "wa"      : 0.0 ### varying dark energy equation of state. At a=0 the 
                     ### value is w0 + wa.
     }
 
-### Default parameters specifying a halo.
-default_halo_dict = {
-    "stq"        :  0.3,
-    "st_little_a":  0.707,
-    "c0"         :  9.0,
-    "beta"       : -0.13,
-    "alpha"      : -1, ### Halo mass profile slope. [NFW = -1]
-    "delta_v"    : -1.0 ### over-density for defining. -1 means default behavior of
-                    ### redshift dependent over-density defined in NFW97
-    }
+MF = 'Bocquet' #Tinker or Bocquet
+MassToIntegrate = 'm200' #virial or m200
 
-### Default values for the ZhengHOD class (other models will fail when using
-### this definition)
-default_hod_dict = {
-    "log_M_min": 12.14,
-    "sigma"    :  0.15,
-    "log_M_0"  : 12.14,
-    "log_M_1p" : 13.43,
-    "alpha":      1.0
-    }
 
 ### Default global integration limits for the code.
 default_limits = {

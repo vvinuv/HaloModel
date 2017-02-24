@@ -36,8 +36,8 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rh
         zp = 1. + zi
         mint = 0.0
         for j, mi in enumerate(marr[:]): 
-            #Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
-            Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=400.0)   
+            Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
+            #Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
             xmax = 4. * Rvir / Rs
             ells = chiarr[i] / zp / Rs
 
@@ -70,10 +70,17 @@ if __name__=='__main__':
     omega_m0 = cosmo0._omega_m0
     cosmo_h = cosmo0._h
 
-    print(MvirTomMRfrac(1e14, 0., cosmo0.BryanDelta(), cosmo0.rho_crit() * cosmo0._h * cosmo0._h, cosmo0.rho_bar() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.))
-    
-    print(HuKravtsov(1e14, 0., 10, cosmo_h, cosmo0.BryanDelta()))
-    sys.exit()
+    #z= 1.
+    #cosmo = CosmologyFunctions(z)
+    #print(MvirTomMRfrac(1e14, z, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.rho_bar() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.))
+    #print(cosmo.BryanDelta(), 200*cosmo.omega_m()) 
+    #print(HuKravtsov(z, 1e14, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo0.rho_bar() * cosmo0._h * cosmo0._h, cosmo.BryanDelta(), 200*cosmo.omega_m(), cosmo_h, 1))
+    #print(cosmo.BryanDelta(), 200) 
+    #print(MvirToMRfrac(1e14, z, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.0))
+    #print(HuKravtsov(z, 1e14, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.BryanDelta(), 200, cosmo_h, 1))
+    #m2m = MvirTomMRfrac(1e11, 0., cosmo0.BryanDelta(), cosmo0.rho_crit() * cosmo0._h * cosmo0._h, cosmo0.rho_bar() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.)[2]
+    #print(dlnMdensitydlnMcritOR200(200. * cosmo0.omega_m(), cosmo0.BryanDelta(), m2m, 1e11, 0, cosmo_h))
+    #sys.exit()
     light_speed = 2.998e5 #km/s
     mpctocm = 3.085677581e24
     kB_kev_K = 8.617330e-8 #keV k^-1
@@ -105,29 +112,39 @@ if __name__=='__main__':
 
     for lnzi in lnzarr:
         zi = np.exp(lnzi) - 1.
-        zi = 1.0
         cosmo = CosmologyFunctions(zi)
-        BDarr.append(cosmo.BryanDelta()) #OK
-        rho_crit_arr.append(cosmo.rho_crit() * cosmo._h * cosmo._h) #OK
-        rhobarr.append(cosmo.rho_bar() * cosmo._h * cosmo._h)
+        rcrit = cosmo.rho_crit() * cosmo._h * cosmo._h
+        rbar = cosmo.rho_bar() * cosmo._h * cosmo._h
+        bn = cosmo.BryanDelta()
+        BDarr.append(bn) #OK
+        rho_crit_arr.append(rcrit) #OK
+        rhobarr.append(rbar)
         chiarr.append(cosmo.comoving_distance() / cosmo._h)
         hzarr.append(cosmo.E0(zi))
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
-        if 1:
-            m200m = np.array([MvirTomMRfrac(mv, zi, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.)[2] for mv in marr]) * cosmo_h
+        if config.MF =='Tinker':
+            m200m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=200.)[2] for mv in marr]) * cosmo_h
             mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=400, marr=m200m)[1])
-            pl.loglog(marr, mf[0])
-            #for mv,m2m in zip(marr, m200m):
-            #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), cosmo.BryanDelta(), m2m/cosmo_h, mv, zi, cosmo_h))
-            m400m = np.array([MvirTomMRfrac(mv, zi, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=400.)[2] for mv in marr]) * cosmo_h
-            mf.append(bias_mass_func_tinker(zi, m400m.min(), m400m.max(), mspace, bias=False, Delta=400, marr=m400m)[1])
-            pl.loglog(marr, mf[1])
-            pl.show()
-            for mv,m4m in zip(marr, m400m):
-                dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), cosmo.BryanDelta(), m4m/cosmo_h, mv, zi, cosmo_h))
-        else:
-            m200 = np.array([MvirToMRfrac(mv, zi, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)[2] for mv in marr]) 
-            mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
+            #pl.loglog(marr, mf[0])
+            for mv,m2m in zip(marr, m200m):
+                dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h))
+            #m400m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=400.)[2] for mv in marr]) * cosmo_h
+            #mf.append(bias_mass_func_tinker(zi, m400m.min(), m400m.max(), mspace, bias=False, Delta=400, marr=m400m)[1])
+            #pl.loglog(marr, mf[1])
+            #pl.show()
+            #for mv,m4m in zip(marr, m400m):
+            #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
+            #print dlnmdlnm
+        elif config.MF == 'Bocquet':
+            if config.MassToIntegrate == 'virial':
+                m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
+                mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
+                for mv,m2 in zip(marr, m200):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))
+            elif config.MassToIntegrate == 'm200':
+                tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]
+                mf.append(tmf)
+                dlnmdlnm.append(np.ones(len(tmf)))
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
         #sys.exit()
