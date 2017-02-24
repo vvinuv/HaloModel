@@ -124,8 +124,9 @@ if __name__=='__main__':
         hzarr.append(cosmo.E0(zi))
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
         if config.MF =='Tinker':
-            m200m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=200.)[2] for mv in marr]) * cosmo_h
-            mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=400, marr=m200m)[1])
+            m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
+            #m200m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=200.)[2] for mv in marr]) * cosmo_h
+            mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
             #pl.loglog(marr, mf[0])
             for mv,m2m in zip(marr, m200m):
                 dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h))
@@ -136,19 +137,21 @@ if __name__=='__main__':
             #for mv,m4m in zip(marr, m400m):
             #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
             #print dlnmdlnm
-                mvir2m200 = 1
+            mvir2m200 = 1
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
                 m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
                 for mv,m2 in zip(marr, m200):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2, mv, zi, cosmo_h))
                 mvir2m200 = 1
             elif config.MassToIntegrate == 'm200':
                 tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]
                 mf.append(tmf)
                 dlnmdlnm.append(np.ones(len(tmf)))
                 mvir2m200 = 0
+        elif config.MF == 'ST':
+            raise ValueError('MF should be Tinker or Bocquet')
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
         #sys.exit()
