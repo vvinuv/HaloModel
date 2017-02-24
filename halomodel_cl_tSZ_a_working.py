@@ -22,12 +22,11 @@ from pressure_profiles import battaglia_profile_2d
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
 @jit(nopython=True) 
-def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rhobarr, rho_crit_arr, bias, Darr, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, mvir2m200): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
    
-    dlnmdlnm /= dlnmdlnm
     cl1h = 0.0
     cl2h = 0.0
     jj = 0
@@ -36,8 +35,10 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rh
         zp = 1. + zi
         mint = 0.0
         for j, mi in enumerate(marr[:]): 
-            Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
-            #Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
+            if mvir2m200:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
+            else:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
             xmax = 4. * Rvir / Rs
             ells = chiarr[i] / zp / Rs
 
@@ -135,16 +136,19 @@ if __name__=='__main__':
             #for mv,m4m in zip(marr, m400m):
             #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
             #print dlnmdlnm
+                mvir2m200 = 1
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
                 m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
                 for mv,m2 in zip(marr, m200):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))
+                mvir2m200 = 1
             elif config.MassToIntegrate == 'm200':
                 tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]
                 mf.append(tmf)
                 dlnmdlnm.append(np.ones(len(tmf)))
+                mvir2m200 = 0
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
         #sys.exit()
@@ -163,7 +167,7 @@ if __name__=='__main__':
     #ellarr = np.logspace(1, 4, 50)
     cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
-        cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rhobarr, rho_crit_arr, bias, Darr, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+        cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, mvir2m200)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
