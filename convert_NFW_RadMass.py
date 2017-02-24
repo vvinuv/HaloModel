@@ -268,13 +268,25 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
     #print Mvir, Mfrac, Rvir, Rfrac
     return Mf, Rf, Mfrac, Rfrac, rho_s, Rs
 
+
 @jit(nopython=True)
 def HuKravtsov(Mvir, z, cosmo_h, delta, deltav):
-    c = concentration_duffy(Mvir, z, cosmo_h) 
-    y = (delta/deltav)**(1./3.)
-    numerator = -3. * (c+y) * (c - c * y + (1.+c)*(c+y)*np.log(1+c) - (1.+c)*(c+y)*np.log(1.+c/y))
-    demominator = 3.*(1.+c)*(c+y)**2*np.log(1.+c) - c*(c+4*c**2+6*c*y+3*y**2)
-    return Mvir * (1. + numerator / demominator)
+    '''
+    Eq. C10 in Hu&Kravstov to convert virial mass to any mass within some delta
+    '''
+    a1 = 0.5116
+    a2 = -0.4283
+    a3 = -3.13e-3
+    a4 = -3.52e-5
+    Delta = delta / deltav
+    conc = concentration_duffy(Mvir, z, cosmo_h) 
+    A = np.log(1.+conc) - 1. + 1. / (1. + conc)
+    f = Delta * (1./conc**3) * A
+    p = a2 + a3 * np.log(f) + a4 * np.log(f)**2
+    x = (a1 * f**(2.*p) + 0.75**2.)**(-0.5) + 2. * f
+    B = -0.081
+    return Mvir * Delta * (1./conc/x)**3
+
 
 if __name__=='__main__':
     z=1.0
