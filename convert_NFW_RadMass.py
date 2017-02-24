@@ -270,23 +270,41 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
 
 
 @jit(nopython=True)
-def HuKravtsov(Mvir, z, cosmo_h, delta, deltav):
+def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
     '''
     Eq. C10 in Hu&Kravstov to convert virial mass to any mass within some delta
+    Input: 
+           z : redshift
+           M which either Mvir or M200c solar mass
+           rho : Rho used for Mvir or M200c
+           rhoo : output density
+           delta : fraction of rho corresponds to Mvir or M200c
+           deltao : fraction of rhoo corresponds to output mass 
+           mvir : should be 1 
     '''
     a1 = 0.5116
     a2 = -0.4283
     a3 = -3.13e-3
     a4 = -3.52e-5
-    Delta = delta / deltav
-    conc = concentration_duffy(Mvir, z, cosmo_h) 
+    Delta = deltao / delta
+    if mvir:
+        conc = concentration_duffy(M, z, cosmo_h) 
+        B = -0.081
+    else:
+        #raise ValueError('mvir should be 1')
+        conc = concentration_duffy_200(M, z, cosmo_h) 
+        B = -0.084
+    R = (M / ((4 * np.pi / 3.) * delta * rho))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
+    rho_s = rho * (delta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
+    Rs = R / conc
+
     A = np.log(1.+conc) - 1. + 1. / (1. + conc)
     f = Delta * (1./conc**3) * A
     p = a2 + a3 * np.log(f) + a4 * np.log(f)**2
     x = (a1 * f**(2.*p) + 0.75**2.)**(-0.5) + 2. * f
-    B = -0.081
-    return Mvir * Delta * (1./conc/x)**3
-
+    Mfrac = M * Delta * (1./conc/x)**3
+    Rfrac = (3. * Mfrac / deltao / rhoo / 4. / np.pi)**(1./3.)
+    return M, R, Mfrac, Rfrac, rho_s, Rs
 
 if __name__=='__main__':
     z=1.0
