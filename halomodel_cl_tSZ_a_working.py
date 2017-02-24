@@ -137,7 +137,10 @@ if __name__=='__main__':
             #for mv,m4m in zip(marr, m400m):
             #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
             #print dlnmdlnm
-            mvir2m200 = 1
+            if config.MassToIntegrate == 'virial':
+                mvir2m200 = 1
+            elif config.MassToIntegrate == 'm200':
+                mvir2m200 = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
                 m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
