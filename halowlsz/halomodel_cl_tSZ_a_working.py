@@ -22,7 +22,7 @@ from pressure_profiles import battaglia_profile_2d
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
 @jit(nopython=True) 
-def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, mvir2m200): 
+def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
@@ -35,7 +35,7 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
         zp = 1. + zi
         mint = 0.0
         for j, mi in enumerate(marr[:]): 
-            if mvir2m200:
+            if input_mvir:
                 Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
             else:
                 Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
@@ -51,7 +51,7 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
                 yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile_2d(x, 0., Rs, M200, R200, zi, rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
             yint *= (4 * np.pi * Rs * (xarr[1] - xarr[0]) / ells / ells)
 
-            mint += (dlnm * mf[jj] * dlnmdlnm[jj] * yint * yint)
+            mint += (dlnm * mf[jj] * yint * yint)
             jj += 1
         my2 = 0.0
         cl1h += (dVdzdOm[i] * consty * consty * mint * zp)
@@ -133,25 +133,25 @@ if __name__=='__main__':
                 #mf.append(bias_mass_func_tinker(zi, m400m.min(), m400m.max(), mspace, bias=False, Delta=400, marr=m400m)[1])
                 #for mv,m4m in zip(marr, m400m):
                 #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
-                mvir2m200 = 1
+                input_mvir = 1
             elif config.MassToIntegrate == 'm200':
                 m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
                 for m2,m2m in zip(marr, m200m):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h))
-                mvir2m200 = 0
+                input_mvir = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
                 m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
                 for mv,m2 in zip(marr, m200):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))
-                mvir2m200 = 1
+                input_mvir = 1
             elif config.MassToIntegrate == 'm200':
                 tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]
                 mf.append(tmf)
                 dlnmdlnm.append(np.ones(len(tmf)))
-                mvir2m200 = 0
+                input_mvir = 0
         elif config.MF == 'ST':
             raise ValueError('MF should be Tinker or Bocquet')
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
@@ -165,14 +165,13 @@ if __name__=='__main__':
     rho_crit_arr = np.array(rho_crit_arr)
     mf = np.array(mf).flatten()  * np.array(dlnmdlnm).flatten()
     Darr = np.array(Darr)
-    dlnmdlnm = np.ones(mf.size)
     bias = np.array(bias).flatten()
 
     ellarr = np.array([200, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 1e4])
-    #ellarr = np.logspace(1, 4, 50)
+    ellarr = np.logspace(1, 4, 30)
     cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
-        cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, mvir2m200)
+        cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
