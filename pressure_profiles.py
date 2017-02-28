@@ -10,13 +10,9 @@ def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_
     '''
     Using Battaglia et al (2012). 
     Eq. 10. M200 in solar mass and R200 in Mpc
-    mtype: Definition of mass provided. mtype=vir or frac
     x = r/Rs where r and Rs in angular diameter distance 
-    if you input r in comoving unit then you need to change R200 *= (1+z) 
-    in the code and inclde z in P200. Currently it is 1. + 0 and it should be
-    changed to 1. + z     Retrun: 
-        Pressure profile in eV/cm^3 at radius r in angular comovin
-g distance
+    Retrun: 
+        Pressure profile in eV/cm^3 at radius r in angular comoving distance
     
     This result is confirmed by using Adam's code
     '''    
@@ -204,7 +200,7 @@ def arnaud_profile_proj(x, Rs, M500, R500, zi, rho_crit, hz, xmax, omega_b0, ome
         return f
 
 if __name__=='__main__':
-    z = 0.0231
+    z = 1. #0.0231
     cosmo = CosmologyFunctions(z)
     omega_b0 = cosmo._omega_b0
     omega_m0 = cosmo._omega_m0
@@ -212,10 +208,17 @@ if __name__=='__main__':
     BryanDelta = cosmo.BryanDelta()
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
 
-    Mvir = 1.58e15 / cosmo_h
+    Mvir = 1.e15 #/ cosmo_h
 
     Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
 
+    pe_ba = np.array([battaglia_profile_2d(r, 0., Rs, M200, R200, z, rho_critical, omega_b0, omega_m0, cosmo_h) for r in np.logspace(-3, 3, 100)])
+    pl.loglog(np.logspace(-3, 3, 100), pe_ba, label='Vinu')
+    fa = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/pressure_vs_z_test') 
+    pl.loglog(fa[:,0], fa[:,1], label='Adam')
+    pl.legend(loc=0)
+    pl.show()
+    sys.exit()
     #ks2002(1.34e-2, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, nu=150.)
     #sys.exit()
 

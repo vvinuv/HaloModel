@@ -16,7 +16,7 @@ import timeit
 #import fastcorr
 from CosmologyFunctions import CosmologyFunctions
 from mass_function import halo_bias_st, bias_mass_func_tinker, bias_mass_func_bocquet
-from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200
+from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
 from pressure_profiles import battaglia_profile_2d
 
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
@@ -42,7 +42,7 @@ def Wk(zl, chil, zsarr, chisarr, Ns, constk):
     return Wk
 
 @jit(nopython=True)
-def integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+def integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
@@ -60,22 +60,25 @@ def integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
         for mi in marr:
             kint = 0.0
             yint = 0.0
-            Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            if input_mvir:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
+            else:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
             #Eq. 3.2 Ma et al
-            rp = np.linspace(0, 5*Rvir, 100)
+            rp = np.linspace(0, config.kRmax*Rvir, config.kRspace)
             for tr in rp:
                 if tr == 0:
                     continue 
                 kint += (tr * tr * np.sin(ell * tr / chiarr[i]) / (ell * tr / chiarr[i]) * rho_s / (tr/Rs) / (1. + tr/Rs)**2.)
             kint *= (4. * np.pi * (rp[1] - rp[0]))
             #Eq. 3.3 Ma et al
-            xmax = 4 * Rvir / Rs #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir.
-            xp = np.linspace(0, xmax, 100)
+            xmax = config.yRmax * Rvir / Rs #Ma et al paper says that Eq. 3.3 convergence by r=5 rvir.
+            xp = np.linspace(0, xmax, config.yRspace)
             ells = chiarr[i] / zp / Rs
             for x in xp:
                 if x == 0:
                     continue 
-                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile_2d(x, 0., Rs, Mfrac, Rfrac, zi, rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile_2d(x, 0., Rs, M200, R200, zi, rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
             yint *= (4 * np.pi * Rs * (xp[1] - xp[0]) / ells / ells)
             mint += (dlnm * mf[jj] * kint * yint)
             mk2 += (dlnm * bias[jj] * mf[jj] * kint)
@@ -90,7 +93,7 @@ def integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
  
 
 @jit(nopython=True)
-def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty): 
+def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
@@ -107,10 +110,13 @@ def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
         mk2 = 0.0
         for mi in marr:
             kint = 0.0
-            Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h)
+            if input_mvir:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
+            else:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
             #Eq. 3.2 Ma et al
             #limit_kk_Rvir.py tests the limit of Rvir. 
-            rp = np.linspace(0, 5 * Rvir, 100)
+            rp = np.linspace(0, config.kRmax * Rvir, config.kRspace)
             for tr in rp:
                 if tr == 0:
                     continue 
@@ -127,7 +133,7 @@ def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     return cl1h, cl2h, cl
  
 @jit(nopython=True)
-def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty):
+def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir):
     '''
     Eq. 3.1 Ma et al. 
     '''
@@ -141,11 +147,13 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rh
         mint = 0.0
         my2 = 0.0
         for j, mi in enumerate(marr[:]):
-            Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
-            #Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
-            xmax = 4. * Rvir / Rs
+            if input_mvir:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
+            else:
+                Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
+            xmax = config.yRmax * Rvir / Rs
             ells = chiarr[i] / zp / Rs
-            xarr = np.linspace(1e-5, xmax, 100)
+            xarr = np.linspace(1e-5, xmax, config.yRspace)
 
             yint = 0.
             for x in xarr:
@@ -154,7 +162,7 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rh
                 yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile_2d(x, 0., Rs, M200, R200, zi, rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
             yint *= (4 * np.pi * Rs * (xarr[1] - xarr[0]) / ells / ells)
 
-            mint += (dlnm * mf[jj] * dlnmdlnm[jj] * yint * yint)
+            mint += (dlnm * mf[jj] * yint * yint)
             my2 += (dlnm * bias[jj] * mf[jj] * yint)
             jj += 1
         cl1h += (dVdzdOm[i] * consty * consty * mint * zp)
@@ -165,60 +173,24 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rh
     return cl1h, cl2h, cl
 
 
-
-@jit(nopython=True)
-def integrate_rad(theta_radian, xi, ell, dlnt):
-    cl = 0.0
-    for ri, t in enumerate(theta_radian):
-        cl += (t*t*np.sin(t*ell)*xi[ri]/t/ell)
-    return cl*dlnt*2.*np.pi
-
-@jit(nopython=True)
-def integrate_ell(larr, cl, theta_rad, dlnl):
-    xi = 0.0
-    for i, l in enumerate(larr):
-        xi += (l*l*np.sin(l*theta_rad)*cl[i]/l/theta_rad)
-    return xi *dlnl / 2 /np.pi
-
-@jit(nopython=True)
-def integrate_splrad(theta_radian_spl, xi_spl, ell, dt):
-    cl = 0.0
-    for ri, t in enumerate(theta_radian_spl):
-        cl += (t*np.sin(t*ell)*xi_spl[ri]/t/ell)
-    return cl*dt*2.*np.pi
-
-@jit(nopython=True)
-def integrate_splell(larr_spl, cl_spl, theta_rad, dl):
-    xi = 0.0
-    for i, l in enumerate(larr_spl):
-        xi += (l*np.sin(l*theta_rad)*cl_spl[i]/l/theta_rad)
-    return xi *dl / 2 /np.pi
-
-
-if __name__=='__main__':
+def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile):
     '''
-    Compute tSZ halomodel from the given mass and redshift
+    Compute WL X tSZ halomodel for a given source redshift distribution 
     '''
-    compute = True
-    fwhm = 10. #arcmin
-    zsfile='source_distribution.txt'
-    kk=0
-    yy=0
-    ky=1
 
     fwhm = fwhm * np.pi / 2.355 / 60. /180. #angle in radian
-    fwhmsq = fwhm * fwhm * 0.
+    fwhmsq = fwhm * fwhm 
 
     cosmo0 = CosmologyFunctions(0)
     omega_b0 = cosmo0._omega_b0
     omega_m0 = cosmo0._omega_m0
     cosmo_h = cosmo0._h
 
-    light_speed = 2.998e5 #km/s
-    mpctocm = 3.085677581e24
-    kB_kev_K = 8.617330e-8 #keV k^-1
-    sigma_t_cm = 6.6524e-25 #cm^2
-    rest_electron_kev = 511. #keV
+    light_speed = config.light_speed #km/s
+    mpctocm = config.mpctocm
+    kB_kev_K = config.kB_kev_K
+    sigma_t_cm = config.sigma_t_cm #cm^2
+    rest_electron_kev = config.rest_electron_kev #keV
     constk = 3. * omega_m0 * (cosmo_h * 100. / light_speed)**2. / 2. #Mpc^-2
     consty = mpctocm * sigma_t_cm / rest_electron_kev 
 
@@ -228,17 +200,17 @@ if __name__=='__main__':
     zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
     Ns /= zint
 
-    kmin = 1e-4 #1/Mpc
-    kmax = 1e4
-    kspace = 100
+    kmin = config.kmin #1/Mpc
+    kmax = config.kmax
+    kspace = config.kspace
 
-    mmin = 1e11 #Msol
-    mmax = 5e15
-    mspace = 50
+    mmin = config.mmin 
+    mmax = config.mmax
+    mspace = config.mspace
 
-    zmin = 1e-5
-    zmax = 5
-    zspace = 51
+    zmin = config.zmin 
+    zmax = config.zmax
+    zspace = config.zspace
 
     dlnk = np.log(kmax/kmin) / kspace
     lnkarr = np.linspace(np.log(kmin), np.log(kmax), kspace)
@@ -272,13 +244,47 @@ if __name__=='__main__':
 
     for i, zi in enumerate(zarr):
         cosmo = CosmologyFunctions(zi)
-        BDarr.append(cosmo.BryanDelta()) #OK
-        rho_crit_arr.append(cosmo.rho_crit() * cosmo._h * cosmo._h) #OK
-        rhobarr.append(cosmo.rho_bar() * cosmo._h * cosmo._h)
+        rcrit = cosmo.rho_crit() * cosmo._h * cosmo._h
+        rbar = cosmo.rho_bar() * cosmo._h * cosmo._h
+        bn = cosmo.BryanDelta()
+        BDarr.append(bn) #OK
+        rho_crit_arr.append(rcrit) #OK
+        rhobarr.append(rbar)
         chiarr.append(cosmo.comoving_distance() / cosmo._h)
         hzarr.append(cosmo.E0(zi))
-        #Msun/Mpc^3 
-        mf.append(bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1])
+        #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
+        if config.MF =='Tinker':
+            if config.MassToIntegrate == 'virial':
+                m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
+                mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
+                for mv,m2m in zip(marr, m200m):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h))
+                #m400m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=400.)[2] for mv in marr]) * cosmo_h
+                #mf.append(bias_mass_func_tinker(zi, m400m.min(), m400m.max(), mspace, bias=False, Delta=400, marr=m400m)[1])
+                #for mv,m4m in zip(marr, m400m):
+                #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
+                input_mvir = 1
+            elif config.MassToIntegrate == 'm200':
+                m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
+                mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
+                for m2,m2m in zip(marr, m200m):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h))
+                input_mvir = 0
+        elif config.MF == 'Bocquet':
+            if config.MassToIntegrate == 'virial':
+                m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
+                mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
+                for mv,m2 in zip(marr, m200):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))
+                input_mvir = 1
+            elif config.MassToIntegrate == 'm200':
+                tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]
+                mf.append(tmf)
+                dlnmdlnm.append(np.ones(len(tmf)))
+                input_mvir = 0
+        elif config.MF == 'ST':
+            raise ValueError('MF should be Tinker or Bocquet')
+        #Bias is calculated by assuming that the mass is virial. I need to change that
         bias.append(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]))
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
@@ -288,25 +294,24 @@ if __name__=='__main__':
     chiarr = np.array(chiarr)
     dVdzdOm = np.array(dVdzdOm) * chiarr * chiarr
     rho_crit_arr = np.array(rho_crit_arr)
-    mf = np.array(mf).flatten()
+    mf = np.array(mf).flatten()  * np.array(dlnmdlnm).flatten()
     zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
     chisarr = zchispl(zsarr)
     bias = np.array(bias).flatten()
     Darr = np.array(Darr)
-    dlnmdlnm = np.ones(mf.size)
 
 
     #ellarr = np.linspace(1, 10001, 10)
-    ellarr = np.logspace(0, np.log10(10001), 20)
+    ellarr = np.logspace(np.log10(config.ellmin), np.log10(config.ellmax), config.ellspace)
     cl_arr, cl1h_arr, cl2h_arr = [], [], []
     for ell in ellarr:
         pk = pkspl(ell/chiarr)
         if ky: 
-            cl1h, cl2h, cl = integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+            cl1h, cl2h, cl = integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         if kk:
-            cl1h, cl2h, cl = integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+            cl1h, cl2h, cl = integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         if yy:
-            cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, dlnmdlnm, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, hzarr, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty)
+            cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
@@ -317,13 +322,25 @@ if __name__=='__main__':
     cl1h = np.array(cl1h_arr) * convolve
     cl2h = np.array(cl2h_arr) * convolve
     
-    if ky:
-        np.savetxt('cl_ky.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
-    if kk:
-        np.savetxt('cl_kk.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
-    if yy:
-        np.savetxt('cl_yy.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+    if config.savefile:
+        if ky:
+            np.savetxt('data/cl_ky.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+        if kk:
+            np.savetxt('data/cl_kk.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+        if yy:
+            np.savetxt('data/cl_yy.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
 
+    return ellarr, cl1h, cl2h, cl
+
+
+if __name__=='__main__':
+    fwhm = 0.0
+    kk = 0
+    yy = 1
+    ky = 0
+    zsfile = 'source_distribution.txt'
+
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm, kk, yy, ky, zsfile)
 
     if yy:
         #Convert y to \delta_T using 150 GHz. (g(x) TCMB)^2 = 6.7354

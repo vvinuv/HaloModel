@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 import pylab as pl
-from cosmology_vinu import CosmologyFunctions
+from CosmologyFunctions import CosmologyFunctions
 from scipy.interpolate import InterpolatedUnivariateSpline
 from convert_NFW_RadMass import MvirToMRfrac, MfracToMvir
  
@@ -132,7 +132,7 @@ def halo_bias_st(sqnu):
     return 1+blag #b_eul
 
 
-def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True):
+def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
     '''
     Sheth & Torman 1999 & Eq. 56-50 of CS02 in p21
     Output:
@@ -142,9 +142,12 @@ def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True):
     cosmo0 = CosmologyFunctions(0)
     cosmo_h = cosmo0._h
 
-    dlnm = np.float64(np.log(uMvir/lMvir) / mspace)
-    lnmarr = np.linspace(np.log(lMvir), np.log(uMvir), mspace)
-    marr = np.exp(lnmarr).astype(np.float64)
+    if marr is not None:
+        lnmarr = np.log(marr)
+    else:
+        dlnm = np.float64(np.log(uMvir/lMvir) / mspace)
+        lnmarr = np.linspace(np.log(lMvir), np.log(uMvir), mspace)
+        marr = np.exp(lnmarr).astype(np.float64)
     #print 'dlnm ', dlnm
 
     #No little h
@@ -306,8 +309,8 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
     g3 = 0.628 + 0.164/cosmo0._omega_m0
     d0 = -1.67e-2 + 2.18e-2 * cosmo0._omega_m0
     d1 = 6.52e-3 - 6.86e-3 * cosmo0._omega_m0
-    d = d0 + d1 * redshift
-    g = g0 + g1 * np.exp(-1. * ((g2-redshift)/g3)**2.)
+    dd = d0 + d1 * redshift
+    gg = g0 + g1 * np.exp(-1. * ((g2-redshift)/g3)**2.)
 
     if mtune:
         lnmarr = np.linspace(np.log(lM200), np.log(1e13), 30)
@@ -349,7 +352,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
 
     mf,sarr,fsarr = [],[],[]
     for M200 in marr:
-        M1dM = g + d * np.log(M200)
+        M1dM = gg + dd * np.log(M200)
         mlow = M200 * 0.99
         mhigh = M200 * 1.01
         slow = lnMassSigmaSpl(np.log(mlow))

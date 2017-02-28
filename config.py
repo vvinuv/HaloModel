@@ -1,3 +1,63 @@
+#Smoothing FWHM 
+fwhm = 10. #arcmin
+
+#Should be use either kk or yy or ky
+kk = False
+yy = False
+ky = True
+zsfile = 'source_distribution_z0p4.txt'
+
+#Battaglia pressure parameters for Delta=200
+P01 = 18.1
+P02 = 0.154
+P03 = -0.758
+xc1 = 0.497
+xc2 = -0.00865
+xc3 = 0.731
+beta1 = 4.35
+beta2 = 0.0393
+beta3 = 0.415
+
+# Mass function
+MF = 'Bocquet' #Tinker or Bocquet
+MassToIntegrate = 'virial' #virial or m200
+
+#Integration limit for radius with respect to virial radius and bin width
+kRmax = 5.
+kRspace = 100
+yRmax = 4.
+yRspace = 100
+
+#ell limits
+ellmin = 1
+ellmax = 1e4
+ellspace = 50 #log space
+
+#limits and space of k, m, z
+kmin = 1e-4 #1/Mpc
+kmax = 1e4
+kspace = 100
+
+mmin = 1e11 #Msol
+mmax = 5e15
+mspace = 30
+
+zmin = 0.07 #Based on Battaglia 2012 paper
+zmax = 5
+zspace = 51
+
+#Saving output Cls
+savefile = True
+
+#Constants 
+light_speed = 2.998e5 #km/s
+mpctocm = 3.085677581e24
+kB_kev_K = 8.617330e-8 #keV k^-1
+sigma_t_cm = 6.6524e-25 #cm^2
+rest_electron_kev = 511. #keV
+
+
+
 """
 This module expresses the default values for the cosmology, halo model, and
 the precision of all modules within the code.
@@ -16,9 +76,6 @@ default_cosmo_dict = {
     "wa"      : 0.0 ### varying dark energy equation of state. At a=0 the 
                     ### value is w0 + wa.
     }
-
-MF = 'Bocquet' #Tinker or Bocquet
-MassToIntegrate = 'm200' #virial or m200
 
 
 ### Default global integration limits for the code.
@@ -78,3 +135,5 @@ default_precision = {
     "epsrel":1e-1
  
     }
+
+
