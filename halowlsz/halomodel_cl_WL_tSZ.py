@@ -173,7 +173,7 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     return cl1h, cl2h, cl
 
 
-def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile):
+def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
     '''
     Compute WL X tSZ halomodel for a given source redshift distribution 
     '''
@@ -258,7 +258,7 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile):
                 m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
                 for mv,m2m in zip(marr, m200m):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h))
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h) * cosmo_h) #I think dlnM200m/dlnMv is calculating now. However, I should be calculating h*dlnM200m/dlnMv. Therefore, I need to multiply by cosmo_h
                 #m400m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=400.)[2] for mv in marr]) * cosmo_h
                 #mf.append(bias_mass_func_tinker(zi, m400m.min(), m400m.max(), mspace, bias=False, Delta=400, marr=m400m)[1])
                 #for mv,m4m in zip(marr, m400m):
@@ -268,7 +268,7 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile):
                 m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
                 for m2,m2m in zip(marr, m200m):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h))
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h) * cosmo_h) #I think dlnM200m/dlnMv is calculating now. However, I should be calculating h*dlnM200m/dlnMv. Therefore, I need to multiply by cosmo_h
                 input_mvir = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
@@ -324,11 +324,11 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile):
     
     if config.savefile:
         if ky:
-            np.savetxt('data/cl_ky.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+            np.savetxt(os.path.join(odir, 'cl_ky.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
         if kk:
-            np.savetxt('data/cl_kk.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+            np.savetxt(os.path.join(odir, 'cl_kk.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
         if yy:
-            np.savetxt('data/cl_yy.dat', np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+            np.savetxt(os.path.join(odir, 'cl_yy.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
 
     return ellarr, cl1h, cl2h, cl
 
@@ -340,7 +340,7 @@ if __name__=='__main__':
     ky = 0
     zsfile = 'source_distribution.txt'
 
-    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm, kk, yy, ky, zsfile)
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data')
 
     if yy:
         #Convert y to \delta_T using 150 GHz. (g(x) TCMB)^2 = 6.7354
