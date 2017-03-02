@@ -148,18 +148,18 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
         my2 = 0.0
         for j, mi in enumerate(marr[:]):
             if input_mvir:
-                Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
+                Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi/cosmo_h, zi, BDarr[i], rho_crit_arr[i]*cosmo_h*cosmo_h, cosmo_h, frac=200.0)   
             else:
                 Mvir, Rvir, M200, R200, rho_s, Rs = MfracToMvir(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
             xmax = config.yRmax * Rvir / Rs
-            ells = chiarr[i] / zp / Rs
+            ells = chiarr[i] / cosmo_h / zp / Rs
             xarr = np.linspace(1e-5, xmax, config.yRspace)
 
             yint = 0.
             for x in xarr:
                 if x == 0:
                     continue
-                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile_2d(x, 0., Rs, M200, R200, zi, rho_crit_arr[i], omega_b0, omega_m0, cosmo_h))
+                yint += (x * x * np.sin(ell * x / ells) / (ell * x / ells) * battaglia_profile_2d(x, 0., Rs, M200, R200, zi, rho_crit_arr[i]*cosmo_h*cosmo_h, omega_b0, omega_m0, cosmo_h))
             yint *= (4 * np.pi * Rs * (xarr[1] - xarr[0]) / ells / ells)
 
             mint += (dlnm * mf[jj] * yint * yint)
@@ -217,13 +217,13 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
     karr = np.exp(lnkarr).astype(np.float64)
     #No little h
     #Input Mpc/h to power spectra and get Mpc^3/h^3
-    pk_arr = np.array([cosmo0.linear_power(k/cosmo0._h) for k in karr]).astype(np.float64) / cosmo0._h / cosmo0._h / cosmo0._h
+    pk_arr = np.array([cosmo0.linear_power(k/cosmo0._h) for k in karr]).astype(np.float64)
     pkspl = InterpolatedUnivariateSpline(karr/cosmo0._h, pk_arr, k=2) 
     #pl.loglog(karr, pk_arr)
     #pl.show()
 
     dlnm = np.log(mmax/mmin) / mspace
-    lnmarr = np.linspace(np.log(mmin), np.log(mmax), mspace)
+    lnmarr = np.linspace(np.log(mmin * cosmo0._h), np.log(mmax * cosmo0._h), mspace)
     marr = np.exp(lnmarr).astype(np.float64)
 
     lnzarr = np.linspace(np.log(1.+zmin), np.log(1.+zmax), zspace)
@@ -234,7 +234,7 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
     #No little h
     #Need to give mass * h and get the sigma without little h
     #The following lines are used only used for ST MF and ST bias
-    sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
+    sigma_m0 = np.array([cosmo0.sigma_m(m) for m in marr])
     rho_norm0 = cosmo0.rho_bar()
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
@@ -244,21 +244,21 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
 
     for i, zi in enumerate(zarr):
         cosmo = CosmologyFunctions(zi)
-        rcrit = cosmo.rho_crit() * cosmo._h * cosmo._h
-        rbar = cosmo.rho_bar() * cosmo._h * cosmo._h
+        rcrit = cosmo.rho_crit()
+        rbar = cosmo.rho_bar()
         bn = cosmo.BryanDelta()
         BDarr.append(bn) #OK
         rho_crit_arr.append(rcrit) #OK
         rhobarr.append(rbar)
-        chiarr.append(cosmo.comoving_distance() / cosmo._h)
+        chiarr.append(cosmo.comoving_distance())
         hzarr.append(cosmo.E0(zi))
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
         if config.MF =='Tinker':
             if config.MassToIntegrate == 'virial':
-                m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
-                mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
+                m200m = np.array([HuKravtsov(zi, mv/cosmo_h, rcrit, rbar, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
+                mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m, reduced=True)[1])
                 for mv,m2m in zip(marr, m200m):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h) * cosmo_h) #I think dlnM200m/dlnMv is calculating now. Tinker mass function is given in M/h. Therefore, I should be calculating h*dlnM200m/dlnMv to make it consitent with Tinker mass defintion (i.e., if I multiply by h then Tinker mass denfinition is Msol/h). Therefore, I need to multiply by cosmo_h
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m, mv, zi, cosmo_h)) #I think dlnM200m/dlnMv is calculating now. Tinker mass function is given in M/h. Therefore, I should be calculating h*dlnM200m/dlnMv to make it consitent with Tinker mass defintion (i.e., if I multiply by h then Tinker mass denfinition is Msol/h). Therefore, I need to multiply by cosmo_h
                 #m400m = np.array([MvirTomMRfrac(mv, zi, bn, rcrit, rbar, cosmo_h, frac=400.)[2] for mv in marr]) * cosmo_h
                 #mf.append(bias_mass_func_tinker(zi, m400m.min(), m400m.max(), mspace, bias=False, Delta=400, marr=m400m)[1])
                 #for mv,m4m in zip(marr, m400m):
@@ -286,14 +286,14 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
             raise ValueError('MF should be Tinker or Bocquet')
         #Bias is calculated by assuming that the mass is virial. I need to change that
         bias.append(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]))
-        dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
+        dVdzdOm.append(cosmo.E(zi)) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
     hzarr = np.array(hzarr)
     BDarr = np.array(BDarr)
-    rhobarr = np.array(rhobarr)
-    chiarr = np.array(chiarr)
-    dVdzdOm = np.array(dVdzdOm) * chiarr * chiarr
-    rho_crit_arr = np.array(rho_crit_arr)
+    rhobarr = np.array(rhobarr) #h^2 Msol/Mpc^3
+    chiarr = np.array(chiarr) #Mpc/h
+    dVdzdOm = np.array(dVdzdOm) * chiarr * chiarr #Mpc^3/h^3
+    rho_crit_arr = np.array(rho_crit_arr) #h^2 Msol/Mpc^3
     mf = np.array(mf).flatten()  * np.array(dlnmdlnm).flatten()
     zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
     chisarr = zchispl(zsarr)

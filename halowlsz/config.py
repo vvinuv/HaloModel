@@ -19,7 +19,7 @@ beta2 = 0.0393
 beta3 = 0.415
 
 # Mass function
-MF = 'Bocquet' #Tinker or Bocquet
+MF = 'Tinker' #Tinker or Bocquet
 MassToIntegrate = 'virial' #virial or m200
 
 #Integration limit for radius with respect to virial radius and bin width
@@ -31,7 +31,7 @@ yRspace = 100
 #ell limits
 ellmin = 1
 ellmax = 1e4
-ellspace = 50 #log space
+ellspace = 10 #log space
 
 #limits and space of k, m, z
 kmin = 1e-4 #1/Mpc
@@ -42,7 +42,7 @@ mmin = 1e11 #Msol
 mmax = 5e15
 mspace = 30
 
-zmin = 0.07 #Based on Battaglia 2012 paper
+zmin = 0.07 #Based on Battaglia 2012 paper zmin=0.07 and zmax=5
 zmax = 5
 zspace = 51
 
@@ -63,19 +63,48 @@ This module expresses the default values for the cosmology, halo model, and
 the precision of all modules within the code.
 """
 ### parameters specifying a cosmology.
+#Samuels simulation 
+#default_cosmo_dict = {
+#    "omega_m0": 0.2648,  
+#    "omega_b0": 0.04479,
+#    "omega_l0": 0.7352,  
+#    "omega_r0": 0.,
+#    "cmb_temp": 2.726,
+#    "h"       : 0.71, 
+#    "sigma_8" : 0.8, 
+#    "n_scalar": 0.963, 
+#    "w0"      : -1.0, 
+#    "wa"      : 0.0 
+#    }
+
+#Battaglia cosmology
 default_cosmo_dict = {
-    "omega_m0": 0.264, #0.278 - 4.15e-5/0.7**2, ### total matter density at z=0
-    "omega_b0": 0.04448, #0.046, ### baryon density at z=0
-    "omega_l0": 0.736, #0.722, ### dark energy density at z=0
-    "omega_r0": 0., #4.15e-5/0.7**2, ### radiation density at z=0
-    "cmb_temp": 2.726, ### temperature of the CMB in K at z=0
-    "h"       : 0.71, ### Hubble's constant at z=0 normalized to 1/100 km/s/Mpc
-    "sigma_8" : 0.8, ### over-density of matter at 8.0 Mpc/h
-    "n_scalar": 0.963, #0.9624, ### large k slope of the power spectrum
-    "w0"      : -1.0, ### dark energy equation of state at z=0
-    "wa"      : 0.0 ### varying dark energy equation of state. At a=0 the 
-                    ### value is w0 + wa.
+    "omega_m0": 0.25, 
+    "omega_b0": 0.043,
+    "omega_l0": 0.75, 
+    "omega_r0": 0.,
+    "cmb_temp": 2.726,
+    "h"       : 0.7,
+    "sigma_8" : 0.8, 
+    "n_scalar": 0.96, 
+    "w0"      : -1.0, 
+    "wa"      : 0.0 
     }
+
+
+#default_cosmo_dict = {
+#    "omega_m0": 0.264, #0.278 - 4.15e-5/0.7**2, ### total matter density at z=0
+#    "omega_b0": 0.04448, #0.046, ### baryon density at z=0
+#    "omega_l0": 0.736, #0.722, ### dark energy density at z=0
+#    "omega_r0": 0., #4.15e-5/0.7**2, ### radiation density at z=0
+#    "cmb_temp": 2.726, ### temperature of the CMB in K at z=0
+#    "h"       : 0.71, ### Hubble's constant at z=0 normalized to 1/100 km/s/Mpc
+#    "sigma_8" : 0.8, ### over-density of matter at 8.0 Mpc/h
+#    "n_scalar": 0.963, #0.9624, ### large k slope of the power spectrum
+#    "w0"      : -1.0, ### dark energy equation of state at z=0
+#    "wa"      : 0.0 ### varying dark energy equation of state. At a=0 the 
+#                    ### value is w0 + wa.
+#    }
 
 
 ### Default global integration limits for the code.

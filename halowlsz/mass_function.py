@@ -192,7 +192,7 @@ def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
     return marr, mf
 
 
-def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, mtune=False, marr=None):
+def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, mtune=False, marr=None, reduced=False):
     '''
     Wrote on Jan 26, 2017
     Mass function of mass determined from mean density
@@ -267,8 +267,10 @@ def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, 
 
         fsigma = A * np.exp(-c / sigma**2.) * ((sigma/b)**-a + 1.)
         #print '%.2e %.2e %.2f %.2f %.2f %.2f %.2f'%(M200, fsigma, A, a, b, c, sigma)
-        mf.append(-1 * fsigma * rho_norm0 * cosmo._h * cosmo._h * ds_dm / sigma)
-        ##mf.append(-1 * fsigma * rho_norm0 * ds_dm / sigma) #if need h^2/Mpc^3
+        if reduced:
+            mf.append(-1 * fsigma * rho_norm0 * ds_dm / sigma) #if need h^2/Mpc^3
+        else:
+            mf.append(-1 * fsigma * rho_norm0 * cosmo._h * cosmo._h * ds_dm / sigma)
         sarr.append(sigma)
         fsarr.append(fsigma)
 
@@ -379,7 +381,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
 
 if __name__=='__main__':
     mf = []
-    redshift = 1.05
+    redshift = 4.0
     mlow = 1e11
     mhigh = 5e15
     mspace = 100
@@ -393,6 +395,7 @@ if __name__=='__main__':
     #marr, mf = bias_mass_func_st(redshift, mlow, mhigh, mspace, bias=True)
     #pl.loglog(marr, mf, label='Function')
 
+    '''
     M200 = []
     cosmo = CosmologyFunctions(redshift)
     cosmo_h = cosmo._h
@@ -403,9 +406,11 @@ if __name__=='__main__':
     M200 = np.array(M200)
     print M200.min(), M200.max()
     m2001 = np.logspace(np.log10(M200.min()), np.log10(M200.max()), mspace)
-    marr, mf, sarr, fsarr = bias_mass_func_tinker(redshift, M200.min(), M200.max(), mspace, marr=None) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
+    '''
+    M200 = marr.copy()
+    marr, mf, sarr, fsarr = bias_mass_func_tinker(redshift, M200.min(), M200.max(), mspace, marr=None, reduced=True) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
     print marr.min(), marr.max()
-    np.savetxt('vmf.dat', np.transpose((marr, mf/marr)))
+    np.savetxt('../data/vmf.dat', np.transpose((marr, mf/marr)))
     print marr[0], mf[0] 
     #I think my code give M/h and the code from Jeremy Tinker and HMF is also agrees with my code. However, it should be checked, i.e. not very sure whether the mass in this function bias_mass_func_tinker() gives M*h or M 
     #pl.loglog(marr1, mf, label='Tinker-Vinu1')
@@ -413,13 +418,13 @@ if __name__=='__main__':
     pl.loglog(marr, mf, label='Tinker-Vinu', lw=3)
     marr, mf, sarr, fsarr = bias_mass_func_bocquet(redshift, M200.min(), M200.max(), mspace, marr=None) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
     pl.loglog(marr, mf, label='Bocquet-Vinu', lw=3)
-    f = np.genfromtxt('hmf/mVector_PLANCK-SMT z: 0.5.txt')
+    #f = np.genfromtxt('hmf/mVector_PLANCK-SMT z: 0.5.txt')
     #pl.loglog(f[:,0], f[:,6]*0.71**3, label='HMF')
-    f = np.genfromtxt('/media/luna1/vinu/software/jeremy/test.dndM.05')
+    f = np.genfromtxt('/media/luna1/vinu/software/jeremy/test.dndM4')
     mspl = InterpolatedUnivariateSpline(f[:,0], f[:,0]*f[:,1]*0.71**2) 
-    pl.loglog(f[:,0], f[:,0]*f[:,1]*0.71**2, label='Jeremy')
+    pl.loglog(f[:,0], f[:,0]*f[:,1], label='Jeremy')
     pl.xlabel(r'$M_\odot/h$')
     pl.ylabel(r'$Mpc^{-3}$')
     pl.legend(loc=0)
-    pl.savefig('compare_mf_jeremy_vinu.png', bbox_inches='tight')
+    pl.savefig('../figs/compare_mf_jeremy_vinu.png', bbox_inches='tight')
     pl.show()
