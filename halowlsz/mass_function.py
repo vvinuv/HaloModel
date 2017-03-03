@@ -261,7 +261,7 @@ def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, 
         mhigh = M200 * 1.01
         slow = lnMassSigmaSpl(np.log(mlow))
         shigh = lnMassSigmaSpl(np.log(mhigh))
-        ds_dm = (shigh - slow) / (mhigh - mlow)
+        ds_dm = (shigh - slow) / (mhigh - mlow) #this will have one h
         sigma = lnMassSigmaSpl(np.log(M200))
         #print '%.2e %.2f %.2e'%(M200, sigma, ds_dm)
 
@@ -270,7 +270,7 @@ def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, 
         if reduced:
             mf.append(-1 * fsigma * rho_norm0 * ds_dm / sigma) #if need h^2/Mpc^3
         else:
-            mf.append(-1 * fsigma * rho_norm0 * cosmo._h * cosmo._h * ds_dm / sigma)
+            mf.append(-1 * fsigma * rho_norm0 * cosmo._h**3 * ds_dm / sigma) #It will have h^3/Mpc^3 if the dn/dlnM has M in Msol unit
         sarr.append(sigma)
         fsarr.append(fsigma)
 
