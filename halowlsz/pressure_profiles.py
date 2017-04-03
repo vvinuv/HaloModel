@@ -12,11 +12,11 @@ def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_
     Eq. 10. M200 in solar mass and R200 in Mpc
     x = r/Rs where r and Rs in angular diameter distance 
     Retrun: 
-        Pressure profile in eV/cm^3 at radius r in angular comoving distance
+        Pressure profile in keV/cm^3 at radius r in angular comoving distance
     
     This result is confirmed by using Adam's code
     '''    
-    #It seems Rs & R200 are in the physical distance, i.e. angular comoving distance
+    #Rs & R200 are in the physical distance, i.e. angular comoving distance
     x = np.sqrt(x**2. + y**2)
     r = x * Rs
     x = r / R200
@@ -200,6 +200,7 @@ def arnaud_profile_proj(x, Rs, M500, R500, zi, rho_crit, hz, xmax, omega_b0, ome
         return f
 
 if __name__=='__main__':
+    from scipy.interpolate import interp1d
     z = 1. #0.0231
     cosmo = CosmologyFunctions(z)
     omega_b0 = cosmo._omega_b0
@@ -208,15 +209,26 @@ if __name__=='__main__':
     BryanDelta = cosmo.BryanDelta()
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
 
+    rarr = np.logspace(-3, 3, 100)
     Mvir = 1.e15 #/ cosmo_h
 
     Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
 
-    pe_ba = np.array([battaglia_profile_2d(r, 0., Rs, M200, R200, z, rho_critical, omega_b0, omega_m0, cosmo_h) for r in np.logspace(-3, 3, 100)])
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, M200, R200, rho_s, Rs)
+    M200 = 8.915e14
+    R200 = 1.392
+    Rs = 0.53
+    xarr = rarr / Rs
+    pe_ba = np.array([battaglia_profile_2d(x, 0., Rs, M200, R200, z, rho_critical, omega_b0, omega_m0, cosmo_h) for x in xarr])
+    pl.subplot(121)
     pl.loglog(np.logspace(-3, 3, 100), pe_ba, label='Vinu')
-    fa = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/pressure_vs_z_test') 
+    spl = interp1d(np.logspace(-3, 3, 100), pe_ba, fill_value='extrapolate')
+    #This file contains the angular radial bins NOT comoving radial bins and the 3d pressure profile from Adam's code. This is implemented lines between ~130 to 150
+    fa = np.genfromtxt('/media/luna1/vinu/software/AdamSZ/pressure3d_z_1_M_1e15') 
     pl.loglog(fa[:,0], fa[:,1], label='Adam')
     pl.legend(loc=0)
+    pl.subplot(122)
+    pl.scatter(fa[:,0], fa[:,1]/spl(fa[:,0]))
     pl.show()
     sys.exit()
     #ks2002(1.34e-2, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, nu=150.)

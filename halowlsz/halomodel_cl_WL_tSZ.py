@@ -242,6 +242,12 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
     bias, Darr = [], []
     mf, dlnmdlnm = [], []
 
+    tm200c = np.logspace(np.log10(1e9), np.log10(1e16), 50)
+    #tf = np.genfromtxt('../data/z_m_relation.dat')
+    #tz = tf[:,0]
+    #tmv = tf[:,1]
+    #tm200c = tf[:,2]
+    #tm200m = tf[:,3]
     for i, zi in enumerate(zarr):
         cosmo = CosmologyFunctions(zi)
         rcrit = cosmo.rho_crit() * cosmo._h * cosmo._h
@@ -260,11 +266,25 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
                 for mv,m2m in zip(marr, mFrac):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
                 input_mvir = 1
-            elif config.MassToIntegrate == 'm200':
+            elif config.MassToIntegrate == 'm200c':
                 m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
                 for m2,m2m in zip(marr, m200m):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
+                input_mvir = 0
+            elif config.MassToIntegrate == 'm200m':
+                #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
+                tm200m = np.array([HuKravtsov(zi, tt, rcrit, rbar, 200, 200.*cosmo.omega_m(), cosmo._h, 1)[2] for tt in tm200c])
+                tmspl = InterpolatedUnivariateSpline(tm200m, tm200c)
+                m200c = tmspl(marr)
+                m200m = marr * cosmo_h 
+                marr = m200c.copy()
+                #print marr
+                mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
+                for m2,m2m in zip(marr, m200m):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
+                #print dlnmdlnm
+                #print aaa
                 input_mvir = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
