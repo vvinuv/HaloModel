@@ -195,7 +195,7 @@ if __name__=='__main__':
         cl_kk.append(integrate_chi(zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk, chiH, Ns))
     cl_kk = np.array(cl_kk)
     print cl_kk #* larr * (1+larr) / 2. / np.pi 
-    np.savetxt('data/kk_power_consta_bias.txt', np.transpose((larr, cl_kk)))
+    np.savetxt('../data/kk_power_const_bias_z1.dat', np.transpose((larr, cl_kk)))
     #np.savetxt('data/pk_%.1f.txt'%redshift, np.transpose((karr, pk_arr))) 
     pl.loglog(larr, cl_kk)
     pl.show()
