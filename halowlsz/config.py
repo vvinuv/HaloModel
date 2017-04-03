@@ -20,10 +20,12 @@ beta3 = 0.415
 
 # Mass function
 MF = 'Tinker' #Tinker or Bocquet
-MassToIntegrate = 'virial' #virial or m200
-MassDef = 400 #Mass definition in Tinker MF in average mass density (critical * Omega_m(z)) if MassToIntegrate = 'virial'.Should be either 200 or 400. When using 400 it seems the power spectrum is more agreeable to Battaglia power spectrum  
+MassToIntegrate = 'm200c' #virial or m200c or m200m (m200m is not working)
+MassDef = 200 #Mass definition in Tinker MF in average mass density (critical * Omega_m(z)) if MassToIntegrate = 'virial'.Should be either 200 or 400. When using 400 it seems the power spectrum is more agreeable to Battaglia power spectrum  
 
 #Integration limit for radius with respect to virial radius and bin width
+#kRmax for convergence
+#yRmax for SZ 
 kRmax = 5.
 kRspace = 100
 yRmax = 4.
@@ -32,7 +34,7 @@ yRspace = 100
 #ell limits
 ellmin = 1
 ellmax = 1e4
-ellspace = 50 #log space
+ellspace = 100 #log space
 
 #limits and space of k, m, z
 kmin = 1e-4 #1/Mpc
