@@ -273,13 +273,21 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
 def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
     '''
     Eq. C10 in Hu&Kravstov to convert virial mass to any mass within some delta
+    either both in critical density or mean density. In this function I use
+    critical density. deltao is appropriately multiplied by omega(z) to find 
+    output mass. i.e. lets say the virial critical mass is mass within a radius 
+    which contains the average density is Delta_v*rho_critical and to find the
+    mass within the average mean density of 200 mean density, then I use
+    200 * (Omega(z) * rho_critical) = 50 * rho_critical. i.e. mass within
+    50 times rho_critical 
     Input: 
            z : redshift
            M which either Mvir or M200c solar mass
            rho : Rho used for Mvir or M200c
-           rhoo : output density
+           rhoo : DOESN'T involves in any calculation of the function 
+                  (output density)
            delta : fraction of rho corresponds to Mvir or M200c
-           deltao : fraction of rhoo corresponds to output mass 
+           deltao : fraction of rho corresponds to output mass 
            mvir : should be 1 
     '''
     a1 = 0.5116
@@ -303,26 +311,32 @@ def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
     p = a2 + a3 * np.log(f) + a4 * np.log(f)**2
     x = (a1 * f**(2.*p) + 0.75**2.)**(-0.5) + 2. * f
     Mfrac = M * Delta * (1./conc/x)**3
-    Rfrac = (3. * Mfrac / deltao / rhoo / 4. / np.pi)**(1./3.)
+    Rfrac = (3. * Mfrac / deltao / rho / 4. / np.pi)**(1./3.)
     return M, R, Mfrac, Rfrac, rho_s, Rs
 
 if __name__=='__main__':
-    z=1.0
-    Mvir = 1e11
+    z=0
+    Mvir = 1e15
     cosmo = CosmologyFunctions(z)
     omega_b = cosmo._omega_b0
     omega_m = cosmo._omega_m0
     cosmo_h = cosmo._h
     BryanDelta = cosmo.BryanDelta() 
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
+    rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
+    print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
     print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
-    print '%.2e %.2e %.2e %.2e %.2e %.2e'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0)
-    print '%.2e %.2e %.2e %.2e %.2e %.2e'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracToMfrac(Mfrac, z, BryanDelta, 400, rho_critical, cosmo_h, frac=200.0)
-    print '%.2e %.2e %.2e %.2e %.2e %.2e'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
 
-    Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, cosmo.rho_crit() * cosmo._h * cosmo._h, cosmo.rho_bar() * cosmo._h * cosmo._h, cosmo_h, frac=200.0)
-    print '%.2e %.2e %.2e %.2e %.2e %.2e'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, rho_critical, rho_bar, cosmo_h, frac=200.0)
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+
+    M200 = 1e15
+    M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, M200, rho_critical, rho_bar, 200, 200, cosmo_h, False)
+    print '%.2e %.2f %.5e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)

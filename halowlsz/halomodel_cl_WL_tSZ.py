@@ -57,7 +57,9 @@ def integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
         mint = 0.0
         mk2 = 0.0
         my2 = 0.0
-        for mi in marr:
+        #for mi in marr:
+        for j in range(config.mspace):
+            mi = marr[jj]
             kint = 0.0
             yint = 0.0
             if input_mvir:
@@ -108,7 +110,9 @@ def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
         kl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
         mint = 0.0
         mk2 = 0.0
-        for mi in marr:
+        #for mi in marr:
+        for j in range(config.mspace):
+            mi = marr[jj]
             kint = 0.0
             if input_mvir:
                 Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)
@@ -146,7 +150,9 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
         zp = 1. + zi
         mint = 0.0
         my2 = 0.0
-        for j, mi in enumerate(marr[:]):
+        #for j, mi in enumerate(marr[:]):
+        for j in range(config.mspace):
+            mi = marr[jj]
             if input_mvir:
                 Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(mi, zi, BDarr[i], rho_crit_arr[i], cosmo_h, frac=200.0)   
             else:
@@ -225,7 +231,6 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
     dlnm = np.log(mmax/mmin) / mspace
     lnmarr = np.linspace(np.log(mmin), np.log(mmax), mspace)
     marr = np.exp(lnmarr).astype(np.float64)
-
     lnzarr = np.linspace(np.log(1.+zmin), np.log(1.+zmax), zspace)
     zarr = np.exp(lnzarr) - 1.0
     dlnz = np.log((1.+zmax)/(1.+zmin)) / zspace
@@ -240,9 +245,14 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
 
     hzarr, BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], [], []
     bias, Darr = [], []
-    mf, dlnmdlnm = [], []
+    marr2, mf, dlnmdlnm = [], [], []
 
-    tm200c = np.logspace(np.log10(1e9), np.log10(1e16), 50)
+    if config.MF =='Tinker' and config.MassToIntegrate == 'm200m':
+        #Mass using critical density (ie. m200c)
+        tm200c = np.logspace(np.log10(1e8), np.log10(1e17), 50)
+        #m200m mass using mean mass density
+        tmarr = np.exp(lnmarr).astype(np.float64)
+
     #tf = np.genfromtxt('../data/z_m_relation.dat')
     #tz = tf[:,0]
     #tmv = tf[:,1]
@@ -263,28 +273,34 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
             if config.MassToIntegrate == 'virial':
                 mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
                 mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac, reduced=False)[1])
+                marr2.append(marr)
                 for mv,m2m in zip(marr, mFrac):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
                 input_mvir = 1
             elif config.MassToIntegrate == 'm200c':
+                #XXX
+                #m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
+                #print m200m
+                #XXX
                 m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
+                marr2.append(marr)
                 for m2,m2m in zip(marr, m200m):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
                 input_mvir = 0
             elif config.MassToIntegrate == 'm200m':
                 #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
-                tm200m = np.array([HuKravtsov(zi, tt, rcrit, rbar, 200, 200.*cosmo.omega_m(), cosmo._h, 1)[2] for tt in tm200c])
+                #Temporary mass array of m200m from m200c
+                tm200m = np.array([HuKravtsov(zi, tt, rcrit, rbar, 200, 200.*cosmo.omega_m(), cosmo._h, 0)[2] for tt in tm200c])
+                #m200m vs m200c spline 
                 tmspl = InterpolatedUnivariateSpline(tm200m, tm200c)
-                m200c = tmspl(marr)
-                m200m = marr * cosmo_h 
-                marr = m200c.copy()
-                #print marr
+                #Now m200c from m200m, i.e. tmarr which is the integrating
+                #variable
+                m200c = tmspl(tmarr)
+                #m200m Msol/h
+                m200m = tmarr * cosmo_h 
+                marr2.append(m200c)
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
-                for m2,m2m in zip(marr, m200m):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
-                #print dlnmdlnm
-                #print aaa
                 input_mvir = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
@@ -304,13 +320,17 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
         bias.append(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]))
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
+    if config.MF =='Tinker' and config.MassToIntegrate == 'm200m':  
+        mf = np.array(mf).flatten()
+    else: 
+        mf = np.array(mf).flatten()  * np.array(dlnmdlnm).flatten()
     hzarr = np.array(hzarr)
     BDarr = np.array(BDarr)
     rhobarr = np.array(rhobarr)
     chiarr = np.array(chiarr)
     dVdzdOm = np.array(dVdzdOm) * chiarr * chiarr
     rho_crit_arr = np.array(rho_crit_arr)
-    mf = np.array(mf).flatten()  * np.array(dlnmdlnm).flatten()
+    marr2 = np.array(marr2).flatten()
     zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
     chisarr = zchispl(zsarr)
     bias = np.array(bias).flatten()
@@ -323,11 +343,11 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
     for ell in ellarr:
         pk = pkspl(ell/chiarr)
         if ky: 
-            cl1h, cl2h, cl = integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
+            cl1h, cl2h, cl = integrate_halo(ell, lnzarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         if kk:
-            cl1h, cl2h, cl = integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
+            cl1h, cl2h, cl = integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         if yy:
-            cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
+            cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
