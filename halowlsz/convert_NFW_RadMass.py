@@ -40,6 +40,8 @@ def df_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
 @jit(nopython=True)
 def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h): 
     '''
+    Make sure that delta and delta1 is above critical density. 
+    In halomodel_cl_WL_tSZ.py the delta is  
     delta - density at which mass function is calculated. i.e. 
     the mean density (omega_m(z) * critical density)
 
@@ -66,7 +68,7 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h):
     t31 = Delta / conc**2 * (1./(1. + conc) - 1./(1. + conc)**2.) - 3. * Delta * A / conc**3.
     t32 = 2. - p * a1 * f**(2*p-1.) * (a1 * f**(2*p) + 0.75**2.)**-1.5
     dMdM1 = Delta / (conc * x)**3 * (1. - 3 * B / x * (x + t31 * t32))
-
+    #print dMdM1
     #print conc, f, p, x, t1, t2
     ##t21 = 1./conc**3 * (2./(1. + conc) - conc / (1. + conc)**2.)
     ##t22 = (3. / conc**4) * (np.log(1. + conc) + conc / (1. + conc))
@@ -315,7 +317,7 @@ def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
     return M, R, Mfrac, Rfrac, rho_s, Rs
 
 if __name__=='__main__':
-    z=0
+    z=0.07
     Mvir = 1e15
     cosmo = CosmologyFunctions(z)
     omega_b = cosmo._omega_b0
@@ -324,6 +326,7 @@ if __name__=='__main__':
     BryanDelta = cosmo.BryanDelta() 
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
     rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
+
     print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
     print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
@@ -336,7 +339,13 @@ if __name__=='__main__':
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, rho_critical, rho_bar, cosmo_h, frac=200.0)
     print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    #Checking where HuKravtsov() & MvirToMRfrac() give the same answer and 
+    #those do
+    for Mvir in np.logspace(9, 16, 50):
+        #Mvir = 1e15
+        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_bar, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
+        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.*cosmo.omega_m())
+        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
 
-    M200 = 1e15
-    M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, M200, rho_critical, rho_bar, 200, 200, cosmo_h, False)
-    print '%.2e %.2f %.5e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        print dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h)
