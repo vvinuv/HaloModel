@@ -2,9 +2,9 @@
 fwhm = 0. #arcmin
 
 #Should be use either kk or yy or ky
-kk = False
-yy = True
-ky = False
+kk = False #Autocorrelation of WL
+yy = True #Autocorrelation of tSZ
+ky = False #Cross correlation of WL x tSZ
 zsfile = 'source_distribution_z0p4.txt'
 
 #Battaglia pressure parameters for Delta=200
