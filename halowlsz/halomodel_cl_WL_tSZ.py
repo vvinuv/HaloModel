@@ -274,13 +274,9 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
                 mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
                 mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac, reduced=False)[1])
                 marr2.append(marr)
-                #f = np.genfromtxt('/media/luna1/vinu/software/jeremy/test.dndM.07')
-                #pl.loglog(f[:,0], f[:,0]*f[:,1], label='Jeremy')
-                #pl.loglog(mFrac, np.array(mf).flatten()*0.7**2, label='Vinu')
-                #pl.show()
-                for mv,m2m in zip(marr, mFrac):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
-                    #dlnmdlnm.append(dlnMdensitydlnMcritOR200(bn, config.MassDef * cosmo.omega_m(), mv, m2m/cosmo_h, zi, cosmo_h)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
+                for mv,mFm in zip(marr, mFrac):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, mFm/cosmo_h, mv, zi, cosmo_h, 1)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
+                    #dlnmdlnm.append(dlnMdensitydlnMcritOR200(bn, config.MassDef * cosmo.omega_m(), mv, mFm/cosmo_h, zi, cosmo_h)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
                 #print dlnmdlnm
                 #print a
                 input_mvir = 1
@@ -289,11 +285,11 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
                 #m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
                 #print m200m
                 #XXX
-                m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
-                mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
+                mFrac = np.array([HuKravtsov(zi, m2c, rcrit, rbar, 200, config.MassDef*cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
+                mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac)[1])
                 marr2.append(marr)
-                for m2,m2m in zip(marr, m200m):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
+                for m2,mFm in zip(marr, mFrac):
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), 200., mFm/cosmo_h, m2, zi, cosmo_h, 0)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
                 input_mvir = 0
             elif config.MassToIntegrate == 'm200m':
                 #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
@@ -314,7 +310,7 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
                 m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
                 for mv,m2 in zip(marr, m200):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))
+                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h, 1))
                 input_mvir = 1
             elif config.MassToIntegrate == 'm200':
                 tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]

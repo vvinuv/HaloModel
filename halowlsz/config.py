@@ -1,10 +1,10 @@
 #Smoothing FWHM 
-fwhm = 10. #arcmin
+fwhm = 0. #arcmin
 
 #Should be use either kk or yy or ky
 kk = False
-yy = False
-ky = True
+yy = True
+ky = False
 zsfile = 'source_distribution_z0p4.txt'
 
 #Battaglia pressure parameters for Delta=200
@@ -20,7 +20,7 @@ beta3 = 0.415
 
 # Mass function
 MF = 'Tinker' #Tinker or Bocquet
-MassToIntegrate = 'm200c' #virial or m200c or m200m (m200m is not working)
+MassToIntegrate = 'virial' #virial or m200c or m200m (m200m is not working)
 MassDef = 200 #Mass definition in Tinker MF in average mass density (critical * Omega_m(z)) if MassToIntegrate = 'virial'.Should be either 200 or 400. When using 400 it seems the power spectrum is more agreeable to Battaglia power spectrum  
 
 #Integration limit for radius with respect to virial radius and bin width
@@ -34,7 +34,7 @@ yRspace = 100
 #ell limits
 ellmin = 1
 ellmax = 1e4
-ellspace = 100 #log space
+ellspace = 50 #log space
 
 #limits and space of k, m, z
 kmin = 1e-4 #1/Mpc
@@ -43,7 +43,7 @@ kspace = 100
 
 mmin = 1e11 #Msol
 mmax = 5e15
-mspace = 30
+mspace = 50
 
 zmin = 0.07 #Based on Battaglia 2012 paper zmin=0.07 and zmax=5
 zmax = 5

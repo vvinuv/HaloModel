@@ -381,7 +381,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
 
 if __name__=='__main__':
     mf = []
-    redshift = 4.0
+    redshift = 0.5
     mlow = 1e11
     mhigh = 5e15
     mspace = 100
@@ -408,7 +408,7 @@ if __name__=='__main__':
     m2001 = np.logspace(np.log10(M200.min()), np.log10(M200.max()), mspace)
     '''
     M200 = marr.copy()
-    marr, mf, sarr, fsarr = bias_mass_func_tinker(redshift, M200.min(), M200.max(), mspace, marr=None, reduced=True) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
+    marr, mf, sarr, fsarr = bias_mass_func_tinker(redshift, M200.min(), M200.max(), mspace, marr=marr, reduced=0) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
     print marr.min(), marr.max()
     np.savetxt('../data/vmf.dat', np.transpose((marr, mf/marr)))
     print marr[0], mf[0] 
@@ -416,13 +416,13 @@ if __name__=='__main__':
     #pl.loglog(marr1, mf, label='Tinker-Vinu1')
     #pl.loglog(m2001, mf, label='Tinker-Vinu2001', lw=3)
     pl.loglog(marr, mf, label='Tinker-Vinu', lw=3)
-    marr, mf, sarr, fsarr = bias_mass_func_bocquet(redshift, M200.min(), M200.max(), mspace, marr=None) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
-    pl.loglog(marr, mf, label='Bocquet-Vinu', lw=3)
-    #f = np.genfromtxt('hmf/mVector_PLANCK-SMT z: 0.5.txt')
-    #pl.loglog(f[:,0], f[:,6]*0.71**3, label='HMF')
-    f = np.genfromtxt('/media/luna1/vinu/software/jeremy/test.dndM4')
+    #marr, mf, sarr, fsarr = bias_mass_func_bocquet(redshift, M200.min(), M200.max(), mspace, marr=None) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
+    #pl.loglog(marr, mf, label='Bocquet-Vinu', lw=3)
+    f = np.genfromtxt('../hmf/mVector_PLANCK-SMT z: 0.5.txt')
+    pl.loglog(f[:,0], f[:,6]*0.70**3, label='HMF')
+    f = np.genfromtxt('/media/luna1/vinu/software/jeremy/test.dndM.5')
     mspl = InterpolatedUnivariateSpline(f[:,0], f[:,0]*f[:,1]*0.71**2) 
-    pl.loglog(f[:,0], f[:,0]*f[:,1], label='Jeremy')
+    pl.loglog(f[:,0], f[:,0]*f[:,1]*0.7**2, label='Jeremy')
     pl.xlabel(r'$M_\odot/h$')
     pl.ylabel(r'$Mpc^{-3}$')
     pl.legend(loc=0)

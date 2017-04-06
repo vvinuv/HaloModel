@@ -38,12 +38,13 @@ def df_Rfrac(Rfrac, rho_s, Rs, rho_critical, frac):
     return (frac * rho_critical * Rfrac**2.) - (rho_s * Rs**3) * (Rfrac / (Rs + Rfrac)**2.)
 
 @jit(nopython=True)
-def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h): 
+def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir): 
     '''
     Make sure that delta and delta1 is above critical density. 
     In halomodel_cl_WL_tSZ.py the delta is  
     delta - density at which mass function is calculated. i.e. 
-    the mean density (omega_m(z) * critical density)
+    MassDef * omega_m(z) of critical density. For Tinker mass function this is
+    MassDef * mean density (mean density  = omega_m(z) * critical density)
 
     M is corresponds to delta definition 
 
@@ -58,8 +59,10 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h):
     a3 = -3.13e-3
     a4 = -3.52e-5
     Delta = delta / delta1
-    #conc = concentration_duffy_200(M1, z, cosmo_h)
-    conc = concentration_duffy(M1, z, cosmo_h)
+    if mvir: 
+        conc = concentration_duffy_200(M1, z, cosmo_h)
+    else:
+        conc = concentration_duffy(M1, z, cosmo_h)
     A = np.log(1.+conc) - 1. + 1. / (1. + conc)
     f = Delta * (1./conc**3) * A
     p = a2 + a3 * np.log(f) + a4 * np.log(f)**2
