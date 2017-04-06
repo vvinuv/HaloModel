@@ -1,4 +1,4 @@
-Temporaraly run this code using these steps
+Temporarily run this code using these steps
 1. cd halowlsz
 2. Change parameters in config.py
 3. python demo_halomodel.py
