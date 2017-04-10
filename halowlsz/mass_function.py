@@ -2,9 +2,11 @@ import os
 import sys
 import numpy as np
 import pylab as pl
+from scipy.interpolate import interp1d
 from CosmologyFunctions import CosmologyFunctions
 from scipy.interpolate import InterpolatedUnivariateSpline
 from convert_NFW_RadMass import MvirToMRfrac, MfracToMvir
+import warnings
  
 class MassFunctionSingle:
     '''
@@ -192,15 +194,15 @@ def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
     return marr, mf
 
 
-def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, mtune=False, marr=None, reduced=False):
+def bias_mass_func_tinker(redshift, lM, uM, mspace, bias=True, Delta=200, mtune=False, marr=None, reduced=False):
     '''
     Wrote on Jan 26, 2017
     Mass function of mass determined from mean density
     of the Universe (i.e. omega_m(z) critical density)
 
     redshift : Redshift of mass function
-    lM200 : Lower limit of M200m
-    uM200 : Upper limit of M200m
+    lM : Lower limit of marr
+    uM : Upper limit of marr
     mspace : mass space
     bias : if weighted by ST bias (Doesn't work now)
     marr : Solar mass/h
@@ -212,11 +214,29 @@ def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, 
 
     '''
 
+    DeltaTinker = np.log((200.,300.,400.,600.,800.,1200.,1600.,2400.,3200.))
+
+    # A
+    ATinker = (1.858659e-01, 1.995973e-01, 2.115659e-01, 2.184113e-01, 2.480968e-01, 2.546053e-01, 2.600000e-01, 2.600000e-01, 2.600000e-01)
+    Aspl = interp1d(DeltaTinker, ATinker, kind='cubic') #fill_value='extrapolate')
+
+    # a
+    aTinker = (1.466904e+00, 1.521782e+00, 1.559186e+00, 1.614585e+00, 1.869936e+00, 2.128056e+00, 2.301275e+00, 2.529241e+00, 2.661983e+00)
+    aspl = interp1d(DeltaTinker, aTinker, kind='cubic') #fill_value='extrapolate')
+
+    # b
+    bTinker = (2.571104e+00, 2.254217e+00, 2.048674e+00, 1.869559e+00, 1.588649e+00, 1.507134e+00, 1.464374e+00, 1.436827e+00, 1.405210e+00)
+    bspl = interp1d(DeltaTinker, bTinker, kind='cubic') #fill_value='extrapolate')
+
+    # c
+    cTinker = (1.193958e+00, 1.270316e+00, 1.335191e+00, 1.446266e+00, 1.581345e+00, 1.795050e+00, 1.965613e+00, 2.237466e+00, 2.439729e+00)
+    cspl = interp1d(DeltaTinker, cTinker, kind='cubic') #fill_value='extrapolate')
+
     cosmo0 = CosmologyFunctions(0)
     cosmo_h = cosmo0._h
 
     if mtune:
-        lnmarr = np.linspace(np.log(lM200), np.log(1e13), 30)
+        lnmarr = np.linspace(np.log(lM), np.log(1e13), 30)
         marr13 = np.exp(lnmarr).astype(np.float64)
         marr14 = np.linspace(2e13, 1e14, 10)
         marr15 = np.linspace(1.1e14, 1e15, 30)
@@ -228,45 +248,57 @@ def bias_mass_func_tinker(redshift, lM200, uM200, mspace, bias=True, Delta=200, 
     elif marr is not None:
         lnmarr = np.log(marr)
     else:
-        dlnm = np.float64(np.log(uM200/lM200) / mspace)
-        lnmarr = np.linspace(np.log(lM200), np.log(uM200), mspace)
+        dlnm = np.float64(np.log(uM/lM) / mspace)
+        lnmarr = np.linspace(np.log(lM), np.log(uM), mspace)
         marr = np.exp(lnmarr).astype(np.float64)
     #print 'dlnm ', dlnm
-    #No little h
-    #Need to give mass * h and get the sigma without little h
-    #XXXsigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
+    #Should give mass in Msun/h to sigma_m() in CosmologyFunctions.py.
+    #See the note in that function
     sigma_m0 = np.array([cosmo0.sigma_m(m) for m in marr])
     rho_norm0 = cosmo0.rho_bar()
     #print marr, sigma_m0
+    if redshift >= 3:
+        cosmo = CosmologyFunctions(3.)
+    else:
+        cosmo = CosmologyFunctions(redshift)
 
-    cosmo = CosmologyFunctions(redshift)
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0*cosmo._growth, k=3)
-    if Delta == 200:
+    if 0:#Delta == 200:
         A = 0.186 * (1. + cosmo.redshift())**-0.14
         a = 1.47 * (1. + cosmo.redshift())**-0.06
         alpha = 10**(-(0.75/np.log10(200./75.))**1.2) 
         b = 2.57    * (1. + cosmo.redshift())**-alpha
         c = 1.19
-    if Delta == 400:
+    if 0:#Delta == 400:
         A = 0.212 * (1. + cosmo.redshift())**-0.14
         a = 1.56 * (1. + cosmo.redshift())**-0.06
         alpha = 10**(-(0.75/np.log10(400./75.))**1.2) 
         b = 2.05 * (1. + cosmo.redshift())**-alpha
         c = 1.34
 
-
+    if Delta > 0:
+        A = Aspl(np.log(Delta))
+        a = aspl(np.log(Delta))
+        b = bspl(np.log(Delta))
+        c = cspl(np.log(Delta))
+    else:
+        A = 0.1 * np.log10(Delta) - 0.05
+        a = 1.43 + (np.log10(Delta) - 2.3)**1.5
+        b = 1.0 + (np.log10(Delta) - 1.6)**-1.5
+        c = 1.2 + (np.log10(Delta) - 2.35)**1.6
+    alpha = 10**(-(0.75/np.log10(Delta/75.))**1.2) 
     mf,sarr,fsarr = [],[],[]
-    for M200 in marr:
-        mlow = M200 * 0.99
-        mhigh = M200 * 1.01
+    for tm in marr:
+        mlow = tm * 0.99
+        mhigh = tm * 1.01
         slow = lnMassSigmaSpl(np.log(mlow))
         shigh = lnMassSigmaSpl(np.log(mhigh))
         ds_dm = (shigh - slow) / (mhigh - mlow) #this will have one h
-        sigma = lnMassSigmaSpl(np.log(M200))
-        #print '%.2e %.2f %.2e'%(M200, sigma, ds_dm)
+        sigma = lnMassSigmaSpl(np.log(tm))
+        #print '%.2e %.2f %.2e'%(tm, sigma, ds_dm)
 
         fsigma = A * np.exp(-c / sigma**2.) * ((sigma/b)**-a + 1.)
-        #print '%.2e %.2e %.2f %.2f %.2f %.2f %.2f'%(M200, fsigma, A, a, b, c, sigma)
+        #print '%.2e %.2e %.2f %.2f %.2f %.2f %.2f'%(tm, fsigma, A, a, b, c, sigma)
         if reduced:
             mf.append(-1 * fsigma * rho_norm0 * ds_dm / sigma) #if need h^2/Mpc^3
         else:
@@ -381,7 +413,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
 
 if __name__=='__main__':
     mf = []
-    redshift = 0.5
+    redshift = 1.
     mlow = 1e11
     mhigh = 5e15
     mspace = 100
@@ -420,7 +452,7 @@ if __name__=='__main__':
     #pl.loglog(marr, mf, label='Bocquet-Vinu', lw=3)
     f = np.genfromtxt('../hmf/mVector_PLANCK-SMT z: 0.5.txt')
     pl.loglog(f[:,0], f[:,6]*0.70**3, label='HMF')
-    f = np.genfromtxt('/media/luna1/vinu/software/jeremy/test.dndM.5')
+    f = np.genfromtxt('testz1p0.dndM')
     mspl = InterpolatedUnivariateSpline(f[:,0], f[:,0]*f[:,1]*0.71**2) 
     pl.loglog(f[:,0], f[:,0]*f[:,1]*0.7**2, label='Jeremy')
     pl.xlabel(r'$M_\odot/h$')

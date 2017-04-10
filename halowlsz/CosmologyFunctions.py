@@ -568,9 +568,10 @@ class CosmologyFunctions:
             float fluctuation for at mass
 
         These are eqn 18 of CS02 and read p10 
+        Function unit:
+            (Msun/h/(Msun h^2/Mpc^3))**(1/3) = Mpc/h
 
         """
-        #scale = self._h*(3.0*mass/(4.0*np.pi*self.rho_bar()))**(1.0/3.0)
         scale = (3.0*mass/(4.0*np.pi*self.rho_bar()))**(1.0/3.0)
 
         return self.sigma_r(scale)
@@ -608,8 +609,9 @@ class CosmologyFunctions:
 
 
 if __name__=='__main__':
-    redshift = 3.0
+    redshift = 0.0
     cosmo = CosmologyFunctions(redshift)
+    print '%.2e'%cosmo.rho_bar()
     print cosmo.omega_m()
     print '%.3e'%((cosmo.E(redshift)/cosmo._h) * cosmo.comoving_distance()**2/cosmo._h**2)
     sys.exit()
