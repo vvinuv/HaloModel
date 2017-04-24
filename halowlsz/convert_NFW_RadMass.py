@@ -60,9 +60,9 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir):
     a4 = -3.52e-5
     Delta = delta / delta1
     if mvir: 
-        conc = concentration_duffy_200(M1, z, cosmo_h)
-    else:
         conc = concentration_duffy(M1, z, cosmo_h)
+    else:
+        conc = concentration_duffy_200(M1, z, cosmo_h)
     A = np.log(1.+conc) - 1. + 1. / (1. + conc)
     f = Delta * (1./conc**3) * A
     p = a2 + a3 * np.log(f) + a4 * np.log(f)**2
@@ -329,7 +329,10 @@ if __name__=='__main__':
     BryanDelta = cosmo.BryanDelta() 
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
     rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
-
+    for D in np.arange(1, 100, 10):
+        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_bar, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
+        print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+    sys.exit()
     print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
     print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)

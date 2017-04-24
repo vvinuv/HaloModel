@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from numba import jit
 from scipy import special
@@ -41,29 +42,54 @@ def correlation():
     return xi 
 
 
-def xi_wl_tsz(rarcmin):
+def xi_wl_tsz(rmin=1e-2, rmax=100, rbin=100, fwhm_k=1, fwhm_y=10, 
+              kk=False, yy=False, ky=True, 
+              zsfile='source_distribution.txt', odir='../data',
+              ofile='test.dat'):
     '''
     Given the radius array in arcmin it will return the halomodel
     '''
+    rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
     rradian = rarcmin / 60. * np.pi / 180.
-    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(config.fwhm, config.kk, config.yy, config.ky, config.zsfile)
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile)
     #pl.loglog(ellarr, cl, c='k', label='original')
     clspl = InterpolatedUnivariateSpline(ellarr, cl, k=3)
+    cl1hspl = InterpolatedUnivariateSpline(ellarr, cl1h, k=3)
+    cl2hspl = InterpolatedUnivariateSpline(ellarr, cl2h, k=3)
 
     ellarr = np.linspace(ellarr.min(), ellarr.max(), 10000)
     dl = ellarr[1] - ellarr[0]
     cl = clspl(ellarr)
+    cl1h = cl1hspl(ellarr)
+    cl2h = cl2hspl(ellarr)
     #pl.loglog(ellarr, cl, c='r', label='Spline')
+    xi1h = np.array([integrate_ell(ellarr, cl1h, r, dl) for r in rradian])
+    xi2h = np.array([integrate_ell(ellarr, cl2h, r, dl) for r in rradian])
     xi = np.array([integrate_ell(ellarr, cl, r, dl) for r in rradian])
-    return xi
+    if config.savefile:
+        if ky:
+            np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
+        if kk:
+            np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
+        if yy:
+            np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
+
+    return rarcmin, xi1h, xi2h, xi
 
 if __name__=='__main__':
-    rarcmin = np.linspace(1e-2, 100, 100) #arcmin
-    xi = xi_wl_tsz(rarcmin)
-    pl.plot(rarcmin, xi)
+    ofile = 'xi_yy.dat'
+    zsfile = 'source_distribution_new_z0p1.txt'
+    rarcmin, xi1h, xi2h, xi = xi_wl_tsz(1e-2, 100, 100, 
+                                        fwhm_k=1, fwhm_y=1., 
+                                        kk=False, yy=True, ky=False,
+                                        zsfile=zsfile, ofile=ofile)
+    pl.plot(rarcmin, xi1h, label='1- halo model')
+    pl.plot(rarcmin, xi2h, label='2- halo model')
+    pl.plot(rarcmin, xi, label='Halo model')
     pl.xlabel('r (arcmin)')
     pl.ylabel(r'$\xi(r)_{y\kappa}$')
-    pl.savefig('figs/xi.png', bbox_inches='tight')
+    pl.legend(loc=0)
+    pl.savefig('../figs/xi.png', bbox_inches='tight')
     pl.show()
 
 

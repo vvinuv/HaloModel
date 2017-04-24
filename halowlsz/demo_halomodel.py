@@ -4,7 +4,7 @@ from halomodel_cl_WL_tSZ import cl_WL_tSZ
 import config
 
 gx =6.7354 #For 150 GHz
-ellarr, cl1h, cl2h, cl = cl_WL_tSZ(config.fwhm, config.kk, config.yy, config.ky, config.zsfile, odir='../data')
+ellarr, cl1h, cl2h, cl = cl_WL_tSZ(config.fwhm_k, config.fwhm_y, config.kk, config.yy, config.ky, config.zsfile, odir='../data')
 
 #Battaglia el al
 b = np.genfromtxt('../data/battaglia_analytical.csv', delimiter=',')

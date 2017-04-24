@@ -3,15 +3,11 @@ import sys
 import time
 import config
 import numpy as np
-from numpy import vectorize
-from scipy import interpolate, integrate
+from scipy import integrate
 from scipy import special
-from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
-from scipy.ndimage.filters import gaussian_filter
+from scipy.interpolate import interp1d, InterpolatedUnivariateSpline
 import pylab as pl
-from numba import double, float64, float32
 from numba import jit
-import numba as nb
 import timeit
 #import fastcorr
 from CosmologyFunctions import CosmologyFunctions
@@ -179,13 +175,23 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     return cl1h, cl2h, cl
 
 
-def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
+def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     '''
     Compute WL X tSZ halomodel for a given source redshift distribution 
     '''
+    if ky:
+        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
+        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_k * sigma_y
+    elif kk:
+        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_k * sigma_k
+    elif yy:
+        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_y * sigma_y
+    else:
+        raise ValueError('Either kk, yy or ky should be True')
 
-    fwhm = fwhm * np.pi / 2.355 / 60. /180. #angle in radian
-    fwhmsq = fwhm * fwhm 
 
     cosmo0 = CosmologyFunctions(0)
     omega_b0 = cosmo0._omega_b0
@@ -271,12 +277,17 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
         if config.MF =='Tinker':
             if config.MassToIntegrate == 'virial':
-                mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
-                mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac, reduced=False)[1])
-                marr2.append(marr)
-                for mv,mFm in zip(marr, mFrac):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, mFm/cosmo_h, mv, zi, cosmo_h, 1)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
-                    #dlnmdlnm.append(dlnMdensitydlnMcritOR200(bn, config.MassDef * cosmo.omega_m(), mv, mFm/cosmo_h, zi, cosmo_h)) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
+                if bn/cosmo.omega_m() > 200:
+                    mFrac = marr * cosmo_h 
+                    #print bn, cosmo.omega_m(), bn/cosmo.omega_m()
+                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=bn/cosmo.omega_m(), marr=mFrac, reduced=False)[1])
+                    marr2.append(marr)
+                    dlnmdlnm.append(np.ones_like(marr))
+                else:
+                    mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
+                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac, reduced=False)[1])
+                    marr2.append(marr)
+                    dlnmdlnm.append([dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, mFm/cosmo_h, mv, zi, cosmo_h, 1) for mv,mFm in zip(marr, mFrac)]) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
                 #print dlnmdlnm
                 #print a
                 input_mvir = 1
@@ -285,11 +296,18 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
                 #m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
                 #print m200m
                 #XXX
-                mFrac = np.array([HuKravtsov(zi, m2c, rcrit, rbar, 200, config.MassDef*cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
-                mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac)[1])
-                marr2.append(marr)
-                for m2,mFm in zip(marr, mFrac):
-                    dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), 200., mFm/cosmo_h, m2, zi, cosmo_h, 0)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
+                if 200./cosmo.omega_m() > 200:
+                    mFrac = marr * cosmo_h 
+                    #print 200, cosmo.omega_m(), 200/cosmo.omega_m()
+                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=200./cosmo.omega_m(), marr=mFrac, reduced=False)[1])
+                    marr2.append(marr)
+                    dlnmdlnm.append(np.ones_like(marr))
+                else:
+                    mFrac = np.array([HuKravtsov(zi, m2c, rcrit, rbar, 200, config.MassDef*cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
+                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac)[1])
+                    marr2.append(marr)
+                    for m2,mFm in zip(marr, mFrac):
+                        dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), 200., mFm/cosmo_h, m2, zi, cosmo_h, 0)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
                 input_mvir = 0
             elif config.MassToIntegrate == 'm200m':
                 #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
@@ -309,6 +327,7 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
             if config.MassToIntegrate == 'virial':
                 m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
+                marr2.append(marr)
                 for mv,m2 in zip(marr, m200):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h, 1))
                 input_mvir = 1
@@ -356,32 +375,35 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
         cl2h_arr.append(cl2h)
         print ell, cl1h, cl2h, cl
 
-    convolve = np.exp(-1 * fwhmsq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
+    convolve = np.exp(-1 * sigmasq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
     cl = np.array(cl_arr) * convolve
     cl1h = np.array(cl1h_arr) * convolve
     cl2h = np.array(cl2h_arr) * convolve
     
     if config.savefile:
         if ky:
-            np.savetxt(os.path.join(odir, 'cl_ky.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+            np.savetxt(os.path.join(odir, 'cl_ky.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
         if kk:
-            np.savetxt(os.path.join(odir, 'cl_kk.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+            np.savetxt(os.path.join(odir, 'cl_kk.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
         if yy:
-            np.savetxt(os.path.join(odir, 'cl_yy.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.3e')
+            np.savetxt(os.path.join(odir, 'cl_yy.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
 
     return ellarr, cl1h, cl2h, cl
 
 
 if __name__=='__main__':
-    fwhm = 0.0
+    fwhm_k = 0.0
+    fwhm_y = 0.0
     kk = 0
     yy = 1
     ky = 0
     zsfile = 'source_distribution.txt'
 
-    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data')
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data')
 
     if yy:
+        bl, bcl = np.genfromtxt('../data/battaglia_analytical.csv', delimiter=',', unpack=True)
+        pl.plot(bl, bcl, label='Battaglia')
         #Convert y to \delta_T using 150 GHz. (g(x) TCMB)^2 = 6.7354
         cl *= 6.7354
         cl1h *= 6.7354

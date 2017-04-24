@@ -2,3 +2,12 @@ Temporarily run this code using these steps
 1. cd halowlsz
 2. Change parameters in config.py
 3. python demo_halomodel.py
+
+
+1. Dir /media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz
+2. Use run_des_sz_cc.py and use des_emap, des_bmap, sz_map etc variables
+3. des_emap, des_bmap can be shapes of galaxies or PSF
+4. Shear catalogs or Mass maps are in /media/luna1/vinu/DES_Catalogs/DES_catalogs/Y1
+5. Sims are in /media/luna1/vinu/des_sz in datastar, /global/project/projectdirs/des/vinu/des_sz on cori or edison etc 
+6. halowlsz/generate_some_correlations.py gives correlation function using difference source redshift distributions
+7.  

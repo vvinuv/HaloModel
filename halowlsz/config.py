@@ -1,11 +1,12 @@
-#Smoothing FWHM 
-fwhm = 0. #arcmin
+#Smoothing FWHM of kappa and sz 
+fwhm_y = 0#10. #arcmin
+fwhm_k = 0#1.0 #arcmin
 
 #Should be use either kk or yy or ky
 kk = False #Autocorrelation of WL
 yy = True #Autocorrelation of tSZ
 ky = False #Cross correlation of WL x tSZ
-zsfile = 'source_distribution_z0p4.txt'
+zsfile = 'source_distribution_new_z0p1.txt'
 
 #Battaglia pressure parameters for Delta=200
 P01 = 18.1
