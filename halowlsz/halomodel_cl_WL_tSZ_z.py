@@ -38,15 +38,14 @@ def Wk(zl, chil, zsarr, chisarr, Ns, constk):
     return Wk
 
 @jit(nopython=True)
-def integrate_kyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
+def integrate_kyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
     cl1h = 0.0
     cl2h = 0.0
     jj = 0
-    for i, lnzi in enumerate(lnzarr):
-        zi = np.exp(lnzi) - 1.
+    for i, zi in enumerate(zarr):
         zp = 1. + zi
         #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
         kl_yl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
@@ -82,16 +81,16 @@ def integrate_kyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
             mk2 += (dlnm * bias[jj] * mf[jj] * kint)
             my2 += (dlnm * bias[jj] * mf[jj] * yint)
             jj += 1
-        cl1h += (dVdzdOm[i] * kl_yl_multi * mint * zp)
-        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * kl_yl_multi * mk2 * my2 * zp)
-    cl1h *= dlnz
-    cl2h *= dlnz
+        cl1h += (dVdzdOm[i] * kl_yl_multi * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * kl_yl_multi * mk2 * my2)
+    cl1h *= dz
+    cl2h *= dz
     cl = cl1h + cl2h
     return cl1h, cl2h, cl
  
 
 @jit(nopython=True)
-def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
+def integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir): 
     '''
     Eq. 3.1 Ma et al. 
     '''    
@@ -99,8 +98,7 @@ def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     cl1h = 0.0
     cl2h = 0.0
     jj = 0
-    for i, lnzi in enumerate(lnzarr):
-        zi = np.exp(lnzi) - 1.
+    for i, zi in enumerate(zarr):
         zp = 1. + zi
         #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
         kl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
@@ -125,15 +123,15 @@ def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
             mint += (dlnm * mf[jj] * kint * kint)
             mk2 += (dlnm * bias[jj] * mf[jj] * kint)
             jj += 1
-        cl1h += (dVdzdOm[i] * kl_multi * kl_multi * mint * zp)
-        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * kl_multi * kl_multi * mk2 * mk2 * zp)
-    cl1h *= dlnz
-    cl2h *= dlnz
+        cl1h += (dVdzdOm[i] * kl_multi * kl_multi * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * kl_multi * kl_multi * mk2 * mk2)
+    cl1h *= dz
+    cl2h *= dz
     cl = cl1h + cl2h
     return cl1h, cl2h, cl
  
 @jit(nopython=True)
-def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir):
+def integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir):
     '''
     Eq. 3.1 Ma et al. 
     '''
@@ -141,8 +139,7 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     cl1h = 0.0
     cl2h = 0.0
     jj = 0
-    for i, lnzi in enumerate(lnzarr[:]):
-        zi = np.exp(lnzi) - 1.
+    for i, zi in enumerate(zarr[:]):
         zp = 1. + zi
         mint = 0.0
         my2 = 0.0
@@ -167,10 +164,10 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
             mint += (dlnm * mf[jj] * yint * yint)
             my2 += (dlnm * bias[jj] * mf[jj] * yint)
             jj += 1
-        cl1h += (dVdzdOm[i] * consty * consty * mint * zp)
-        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * consty * consty * my2 * my2 * zp)
-    cl1h *= dlnz
-    cl2h *= dlnz
+        cl1h += (dVdzdOm[i] * consty * consty * mint)
+        cl2h += (dVdzdOm[i] * pk[i] * Darr[i] * Darr[i] * consty * consty * my2 * my2)
+    cl1h *= dz
+    cl2h *= dz
     cl = cl1h + cl2h
     return cl1h, cl2h, cl
 
@@ -237,11 +234,10 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     dlnm = np.log(mmax/mmin) / mspace
     lnmarr = np.linspace(np.log(mmin), np.log(mmax), mspace)
     marr = np.exp(lnmarr).astype(np.float64)
-    lnzarr = np.linspace(np.log(1.+zmin), np.log(1.+zmax), zspace)
-    zarr = np.exp(lnzarr) - 1.0
-    dlnz = np.log((1.+zmax)/(1.+zmin)) / zspace
+    zarr = np.linspace(zmin, zmax, zspace)
+    dz = (zmax-zmin) / zspace
 
-    print 'dlnk, dlnm dlnz', dlnk, dlnm, dlnz
+    print 'dlnk, dlnm dz', dlnk, dlnm, dz
     #No little h
     #Need to give mass * h and get the sigma without little h
     #The following lines are used only used for ST MF and ST bias
@@ -365,11 +361,11 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     for ell in ellarr:
         pk = pkspl(ell/chiarr)
         if ky: 
-            cl1h, cl2h, cl = integrate_kyhalo(ell, lnzarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
+            cl1h, cl2h, cl = integrate_kyhalo(ell, zarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         if kk:
-            cl1h, cl2h, cl = integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
+            cl1h, cl2h, cl = integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, zsarr, chisarr, Ns, dz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         if yy:
-            cl1h, cl2h, cl = integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dlnz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
+            cl1h, cl2h, cl = integrate_yyhalo(ell, zarr, chiarr, dVdzdOm, marr2, mf, BDarr, rhobarr, rho_crit_arr, bias, Darr, pk, dz, dlnm, omega_b0, omega_m0, cosmo_h, constk, consty, input_mvir)
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
@@ -382,11 +378,11 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     
     if config.savefile:
         if ky:
-            np.savetxt(os.path.join(odir, 'cl_ky.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
+            np.savetxt(os.path.join(odir, 'cl_ky_z.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
         if kk:
-            np.savetxt(os.path.join(odir, 'cl_kk.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
+            np.savetxt(os.path.join(odir, 'cl_kk_z.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
         if yy:
-            np.savetxt(os.path.join(odir, 'cl_yy.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
+            np.savetxt(os.path.join(odir, 'cl_yy_z.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
 
     return ellarr, cl1h, cl2h, cl
 
