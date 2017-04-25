@@ -80,7 +80,7 @@ if __name__=='__main__':
     ofile = 'xi_yy.dat'
     zsfile = 'source_distribution_new_z0p1.txt'
     rarcmin, xi1h, xi2h, xi = xi_wl_tsz(1e-2, 100, 100, 
-                                        fwhm_k=1, fwhm_y=1., 
+                                        fwhm_k=0, fwhm_y=0., 
                                         kk=False, yy=True, ky=False,
                                         zsfile=zsfile, ofile=ofile)
     pl.plot(rarcmin, xi1h, label='1- halo model')
