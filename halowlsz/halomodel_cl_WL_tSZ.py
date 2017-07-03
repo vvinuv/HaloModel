@@ -11,29 +11,27 @@ from numba import jit
 import timeit
 #import fastcorr
 from CosmologyFunctions import CosmologyFunctions
-from mass_function import halo_bias_st, bias_mass_func_tinker, bias_mass_func_bocquet
+from mass_function import halo_bias_st, halo_bias_tinker, bias_mass_func_st, bias_mass_func_tinker, bias_mass_func_bocquet
 from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
 from pressure_profiles import battaglia_profile_2d
+from lensing_efficiency import Wkcom
 
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
 @jit(nopython=True)
-def Wk(zl, chil, zsarr, chisarr, Ns, constk):
+def Wk_just_calling_from_lensing_efficiencyc(zl, chil, zsarr, chisarr, Ns, constk):
     #zl = lens redshift
     #chil = comoving distant to lens
     #zsarr = redshift distribution of source
-    #angsarr = angular diameter distance
     #Ns = Normalized redshift distribution of sources 
     al = 1. / (1. + zl)
     Wk = constk * chil / al
     gw = 0.0
     for i, N in enumerate(Ns):
-        if chisarr[i] < chil:
+        if chisarr[i] < chil  or  chisarr[i] == 0:
             continue
         gw += ((chisarr[i] - chil) * N / chisarr[i])
     gw *= (zsarr[1] - zsarr[0])
-    if gw <= 0:
-        gw = 0.
     Wk = Wk * gw
     return Wk
 
@@ -48,8 +46,7 @@ def integrate_kyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     for i, lnzi in enumerate(lnzarr):
         zi = np.exp(lnzi) - 1.
         zp = 1. + zi
-        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
-        kl_yl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
+        kl_yl_multi = Wkcom(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
         mint = 0.0
         mk2 = 0.0
         my2 = 0.0
@@ -102,8 +99,7 @@ def integrate_kkhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     for i, lnzi in enumerate(lnzarr):
         zi = np.exp(lnzi) - 1.
         zp = 1. + zi
-        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
-        kl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
+        kl_multi = Wkcom(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
         mint = 0.0
         mk2 = 0.0
         #for mi in marr:
@@ -206,11 +202,13 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     constk = 3. * omega_m0 * (cosmo_h * 100. / light_speed)**2. / 2. #Mpc^-2
     consty = mpctocm * sigma_t_cm / rest_electron_kev 
 
-    fz= np.genfromtxt(zsfile)
-    zsarr = fz[:,0]
-    Ns = fz[:,1]
-    zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
-    Ns /= zint
+    zsarr, Ns = np.genfromtxt(zsfile, unpack=True)
+    if np.isscalar(zsarr):
+        zsarr = np.array([zsarr])
+        Ns = np.array([Ns])
+    else:
+        zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
+        Ns /= zint
 
     kmin = config.kmin #1/Mpc
     kmax = config.kmax
@@ -230,7 +228,15 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     #No little h
     #Input Mpc/h to power spectra and get Mpc^3/h^3
     pk_arr = np.array([cosmo0.linear_power(k/cosmo0._h) for k in karr]).astype(np.float64) / cosmo0._h / cosmo0._h / cosmo0._h
-    pkspl = InterpolatedUnivariateSpline(karr/cosmo0._h, pk_arr, k=2) 
+    #np.savetxt('pk_vinu.dat', np.transpose((karr/cosmo0._h, pk_arr*cosmo0._h**3)))
+    #sys.exit()
+
+    #kc, pkc = np.genfromtxt('matterpower.dat', unpack=True)
+    #pkspl = InterpolatedUnivariateSpline(kc, pkc, k=2) 
+    #pkh_arr = pkspl(karr/cosmo0._h)
+    #pk_arr = pkh_arr / cosmo0._h / cosmo0._h / cosmo0._h
+
+    pkspl = InterpolatedUnivariateSpline(karr, pk_arr, k=2) 
     #pl.loglog(karr, pk_arr)
     #pl.show()
 
@@ -250,8 +256,8 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
     hzarr, BDarr, rhobarr, chiarr, dVdzdOm, rho_crit_arr = [], [], [], [], [], []
-    bias, Darr = [], []
-    marr2, mf, dlnmdlnm = [], [], []
+    bias, bias_t, Darr = [], [], []
+    marr2, mf, dlnmdlnm, Deltaarr = [], [], [], []
 
     if config.MF =='Tinker' and config.MassToIntegrate == 'm200m':
         #Mass using critical density (ie. m200c)
@@ -274,17 +280,20 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
         rhobarr.append(rbar)
         chiarr.append(cosmo.comoving_distance() / cosmo._h)
         hzarr.append(cosmo.E0(zi))
+        DD = bn/cosmo.omega_m()
+        DD200 = 200./cosmo.omega_m()
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
+        
         if config.MF =='Tinker':
             if config.MassToIntegrate == 'virial':
-                if bn/cosmo.omega_m() > 200:
+                if DD > 200:
                     mFrac = marr * cosmo_h 
                     #print bn, cosmo.omega_m(), bn/cosmo.omega_m()
-                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=bn/cosmo.omega_m(), marr=mFrac, reduced=False)[1])
+                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=DD, marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append(np.ones_like(marr))
                 else:
-                    mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
+                    mFrac = np.array([HuKravtsov(zi, mv, rcrit, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
                     mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append([dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, mFm/cosmo_h, mv, zi, cosmo_h, 1) for mv,mFm in zip(marr, mFrac)]) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
@@ -293,17 +302,17 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                 input_mvir = 1
             elif config.MassToIntegrate == 'm200c':
                 #XXX
-                #m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
+                #m200m = np.array([HuKravtsov(zi, mv, rcrit, 200, 200*cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
                 #print m200m
                 #XXX
-                if 200./cosmo.omega_m() > 200:
+                if DD200 > 200:
                     mFrac = marr * cosmo_h 
                     #print 200, cosmo.omega_m(), 200/cosmo.omega_m()
-                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=200./cosmo.omega_m(), marr=mFrac, reduced=False)[1])
+                    mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=DD200, marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append(np.ones_like(marr))
                 else:
-                    mFrac = np.array([HuKravtsov(zi, m2c, rcrit, rbar, 200, config.MassDef*cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
+                    mFrac = np.array([HuKravtsov(zi, m2c, rcrit, 200, config.MassDef*cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
                     mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac)[1])
                     marr2.append(marr)
                     for m2,mFm in zip(marr, mFrac):
@@ -312,7 +321,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
             elif config.MassToIntegrate == 'm200m':
                 #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
                 #Temporary mass array of m200m from m200c
-                tm200m = np.array([HuKravtsov(zi, tt, rcrit, rbar, 200, 200.*cosmo.omega_m(), cosmo._h, 0)[2] for tt in tm200c])
+                tm200m = np.array([HuKravtsov(zi, tt, rcrit, 200, 200.*cosmo.omega_m(), cosmo._h, 0)[2] for tt in tm200c])
                 #m200m vs m200c spline 
                 tmspl = InterpolatedUnivariateSpline(tm200m, tm200c)
                 #Now m200c from m200m, i.e. tmarr which is the integrating
@@ -325,7 +334,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                 input_mvir = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
-                m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
+                m200 = np.array([HuKravtsov(zi, mv, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
                 marr2.append(marr)
                 for mv,m2 in zip(marr, m200):
@@ -337,11 +346,31 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                 dlnmdlnm.append(np.ones(len(tmf)))
                 input_mvir = 0
         elif config.MF == 'ST':
-            raise ValueError('MF should be Tinker or Bocquet')
+            mf.append(bias_mass_func_st(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1])
+            marr2.append(marr)
+            dlnmdlnm.append(np.ones_like(marr))
+            input_mvir = 1
+            #raise ValueError('MF should be Tinker or Bocquet')
         #Bias is calculated by assuming that the mass is virial. I need to change that
-        bias.append(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]))
+        #print DD
+        #for m in marr:
+        #    print '%.2e T %.2f'%(m, halo_bias_tinker(DD, cosmo.delta_c() / cosmo._growth / lnMassSigmaSpl(np.log(m))))
+        #    print '%.2e ST %.2f'%(m, halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))))
+        #sys.exit()
+        if config.MF == 'Tinker':
+            if DD >= 200:
+                bias.append(np.array([halo_bias_tinker(DD, cosmo.delta_c() / cosmo._growth / lnMassSigmaSpl(np.log(m))) for m in marr]))
+            else:
+                bias.append(np.array([halo_bias_tinker(config.MassDef*cosmo.omega_m(), cosmo.delta_c() / cosmo._growth / lnMassSigmaSpl(np.log(m))) for m in mFrac/cosmo_h]))
+        elif config.MF == 'ST' or config.MF == 'Bocquet':
+            bias.append(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]))
         dVdzdOm.append(cosmo.E(zi) / cosmo._h) #Mpc/h, It should have (km/s/Mpc)^-1 but in the cosmology code the speed of light is removed  
         Darr.append(cosmo._growth)
+
+        #pl.title('%.2f'%zi)
+        #pl.scatter(np.array([halo_bias_st(cosmo.delta_c() * cosmo.delta_c() / cosmo._growth / cosmo._growth / lnMassSigmaSpl(np.log(m)) / lnMassSigmaSpl(np.log(m))) for m in marr]), np.array([halo_bias_tinker(200, cosmo.delta_c() / cosmo._growth / lnMassSigmaSpl(np.log(m))) for m in marr]))
+        #pl.show()
+
     if config.MF =='Tinker' and config.MassToIntegrate == 'm200m':  
         mf = np.array(mf).flatten()
     else: 
@@ -356,8 +385,8 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     zchispl = InterpolatedUnivariateSpline(zarr, chiarr, k=2)
     chisarr = zchispl(zsarr)
     bias = np.array(bias).flatten()
+    bias_t = np.array(bias_t).flatten()
     Darr = np.array(Darr)
-
 
     #ellarr = np.linspace(1, 10001, 10)
     ellarr = np.logspace(np.log10(config.ellmin), np.log10(config.ellmax), config.ellspace)
@@ -397,7 +426,8 @@ if __name__=='__main__':
     kk = 0
     yy = 1
     ky = 0
-    zsfile = 'source_distribution.txt'
+    zsfile = 'source_distribution_zs_1.txt'
+    #zsfile = 'CFHTLens_zdist.dat'
 
     ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data')
 

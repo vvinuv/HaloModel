@@ -1,12 +1,13 @@
 #Smoothing FWHM of kappa and sz 
-fwhm_y = 0#10. #arcmin
-fwhm_k = 0#1.0 #arcmin
+fwhm_y = 10#10. #arcmin
+fwhm_k = 1.#1.0 #arcmin
 
 #Should be use either kk or yy or ky
 kk = False #Autocorrelation of WL
-yy = True #Autocorrelation of tSZ
-ky = False #Cross correlation of WL x tSZ
-zsfile = 'source_distribution_new_z0p1.txt'
+yy = False #Autocorrelation of tSZ
+ky = True #Cross correlation of WL x tSZ
+#zsfile = 'source_distribution_new_z0p1.txt'
+zsfile = 'source_distribution_cori.txt'
 
 #Battaglia pressure parameters for Delta=200
 P01 = 18.1
@@ -20,7 +21,7 @@ beta2 = 0.0393
 beta3 = 0.415
 
 # Mass function
-MF = 'Tinker' #Tinker or Bocquet
+MF = 'Tinker' #Tinker or Bocquet or ST
 MassToIntegrate = 'virial' #virial or m200c or m200m (m200m is not working)
 MassDef = 200 #Mass definition in Tinker MF in average mass density (critical * Omega_m(z)) if MassToIntegrate = 'virial'.Should be either 200 or 400. When using 400 it seems the power spectrum is more agreeable to Battaglia power spectrum  
 
@@ -29,7 +30,7 @@ MassDef = 200 #Mass definition in Tinker MF in average mass density (critical * 
 #yRmax for SZ 
 kRmax = 5.
 kRspace = 100
-yRmax = 4.
+yRmax = 5.
 yRspace = 100
 
 #ell limits
@@ -46,7 +47,7 @@ mmin = 1e11 #Msol
 mmax = 5e15
 mspace = 50
 
-zmin = 0.07 #Based on Battaglia 2012 paper zmin=0.07 and zmax=5
+zmin = 0.07 #0.07 #Based on Battaglia 2012 paper zmin=0.07 and zmax=5
 zmax = 5
 zspace = 51
 
@@ -66,20 +67,70 @@ rest_electron_kev = 511. #keV
 This module expresses the default values for the cosmology, halo model, and
 the precision of all modules within the code.
 """
-### parameters specifying a cosmology.
+
+
+'''
+
+#Cooray, Hu,  Miralda-Escude 2000
+default_cosmo_dict = {
+    "omega_m0": 0.238, #0.35,
+    "omega_b0": 0.0416, #0.05,
+    "omega_l0": 0.762, #0.65,  
+    "omega_r0": 0.,
+    "cmb_temp": 2.726,
+    "h"       : 0.732, #0.65, 
+    "sigma_8" : 0.759, #0.9, 
+    "n_scalar": 0.958, #1.0,  
+    "w0"      : -1.0, 
+    "wa"      : 0.0 
+    }
+
+
 #Samuels simulation 
-#default_cosmo_dict = {
-#    "omega_m0": 0.2648,  
-#    "omega_b0": 0.04479,
-#    "omega_l0": 0.7352,  
-#    "omega_r0": 0.,
-#    "cmb_temp": 2.726,
-#    "h"       : 0.71, 
-#    "sigma_8" : 0.8, 
-#    "n_scalar": 0.963, 
-#    "w0"      : -1.0, 
-#    "wa"      : 0.0 
-#    }
+default_cosmo_dict = {
+    "omega_m0": 0.2648,  
+    "omega_b0": 0.04479,
+    "omega_l0": 0.7352,  
+    "omega_r0": 0.,
+    "cmb_temp": 2.726,
+    "h"       : 0.71, 
+    "sigma_8" : 0.8, 
+    "n_scalar": 0.963, 
+    "w0"      : -1.0, 
+    "wa"      : 0.0 
+    }
+
+
+#Planck cosmology Table 9 https://arxiv.org/abs/1502.01582
+default_cosmo_dict = {
+    "omega_m0": 0.308,
+    "omega_b0": 0.0484,
+    "omega_l0": 0.692,  
+    "omega_r0": 0.,
+    "cmb_temp": 2.726,
+    "h"       : 0.678, 
+    "sigma_8" : 0.815, 
+    "n_scalar": 0.9677,  
+    "w0"      : -1.0, 
+    "wa"      : 0.0 
+    }
+
+#Hill 2013 cosmology
+default_cosmo_dict = {
+    "omega_m0": 0.2819,
+    "omega_b0": 0.0457,
+    "omega_l0": 0.718,  
+    "omega_r0": 0.,
+    "cmb_temp": 2.726,
+    "h"       : 0.7, 
+    "sigma_8" : 0.817, 
+    "n_scalar": 0.9646,  
+    "w0"      : -1.0, 
+    "wa"      : 0.0 
+    }
+
+
+'''
 
 #Battaglia cosmology
 default_cosmo_dict = {
@@ -88,7 +139,7 @@ default_cosmo_dict = {
     "omega_l0": 0.75, 
     "omega_r0": 0.,
     "cmb_temp": 2.726,
-    "h"       : 0.7,
+    "h"       : 0.72,
     "sigma_8" : 0.8, 
     "n_scalar": 0.96, 
     "w0"      : -1.0, 

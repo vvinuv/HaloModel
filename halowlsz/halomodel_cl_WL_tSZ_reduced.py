@@ -173,13 +173,24 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     return cl1h, cl2h, cl
 
 
-def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
+
+def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     '''
     Compute WL X tSZ halomodel for a given source redshift distribution 
     '''
+    if ky:
+        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
+        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_k * sigma_y
+    elif kk:
+        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_k * sigma_k
+    elif yy:
+        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_y * sigma_y
+    else:
+        raise ValueError('Either kk, yy or ky should be True')
 
-    fwhm = fwhm * np.pi / 2.355 / 60. /180. #angle in radian
-    fwhmsq = fwhm * fwhm 
 
     cosmo0 = CosmologyFunctions(0)
     omega_b0 = cosmo0._omega_b0
@@ -317,7 +328,7 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
         cl2h_arr.append(cl2h)
         print ell, cl1h, cl2h, cl
 
-    convolve = np.exp(-1 * fwhmsq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
+    convolve = np.exp(-1 * sigmasq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
     cl = np.array(cl_arr) * convolve
     cl1h = np.array(cl1h_arr) * convolve
     cl2h = np.array(cl2h_arr) * convolve
@@ -334,13 +345,14 @@ def cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data'):
 
 
 if __name__=='__main__':
-    fwhm = 0.0
+    fwhm_k = 0.0
+    fwhm_y = 0.0
     kk = 0
     yy = 1
     ky = 0
     zsfile = 'source_distribution.txt'
 
-    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm, kk, yy, ky, zsfile, odir='../data')
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data')
 
     if yy:
         #Convert y to \delta_T using 150 GHz. (g(x) TCMB)^2 = 6.7354

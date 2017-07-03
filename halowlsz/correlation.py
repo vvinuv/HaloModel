@@ -42,7 +42,7 @@ def correlation():
     return xi 
 
 
-def xi_wl_tsz(rmin=1e-2, rmax=100, rbin=100, fwhm_k=1, fwhm_y=10, 
+def xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10, 
               kk=False, yy=False, ky=True, 
               zsfile='source_distribution.txt', odir='../data',
               ofile='test.dat'):
@@ -77,11 +77,11 @@ def xi_wl_tsz(rmin=1e-2, rmax=100, rbin=100, fwhm_k=1, fwhm_y=10,
     return rarcmin, xi1h, xi2h, xi
 
 if __name__=='__main__':
-    ofile = 'xi_yy.dat'
-    zsfile = 'source_distribution_new_z0p1.txt'
-    rarcmin, xi1h, xi2h, xi = xi_wl_tsz(1e-2, 100, 100, 
-                                        fwhm_k=0, fwhm_y=0., 
-                                        kk=False, yy=True, ky=False,
+    ofile = 'xi_ky.dat'
+    zsfile = 'source_distribution_new_z0p4.txt'
+    rarcmin, xi1h, xi2h, xi = xi_wl_tsz(1e-2, 150, 100, 
+                                        fwhm_k=1, fwhm_y=10., 
+                                        kk=False, yy=False, ky=True,
                                         zsfile=zsfile, ofile=ofile)
     pl.plot(rarcmin, xi1h, label='1- halo model')
     pl.plot(rarcmin, xi2h, label='2- halo model')

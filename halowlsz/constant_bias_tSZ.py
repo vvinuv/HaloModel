@@ -48,16 +48,39 @@ def integrate_ell(larr, cl, theta_rad, dl):
 
 
 @jit(nopython=True)
-def integrate_zdist(gangsarr, gchisarr, angl, Ns):
+def integrate_zdist(chisarr, chil, Ns, dchis):
     '''This uses exactly Eq. 2 of Waerbeke'''
     gint = 0.0
     for i, N in enumerate(Ns):
-        gint += ((gangsarr[i] - angl) * N / gangsarr[i]) 
-    gint *= (gchisarr[1] - gchisarr[0])
+        if chisarr[i] < chil:
+            continue  
+        gint += ((chisarr[i] - chil) * N / chisarr[i]) 
+    gint *= dchis 
     return gint
 
 @jit(nopython=True)
-def integrate_kk(zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk, chiH, Ns):
+def integrate_kk(zlarr, chilarr, chisarr, pkarr, Darr, constk,  Ns, dchis):
+    '''
+    Uses Eq. 4 of Waerbeke 2014 and I think the power spectrum is non-linear
+    '''
+    aarr = 1. / (1. + zlarr)
+    Wk = constk * chilarr / aarr
+    dchil = chilarr[1] - chilarr[0]
+    cl = 0.0
+    for i, chil in enumerate(chilarr):
+        gw = integrate_zdist(chisarr, chil, Ns, dchis)
+        if gw <= 0:
+            gw = 0.
+        cl += (Wk[i] * Wk[i] *  gw * gw * pkarr[i] * Darr[i] * Darr[i] / chil / chil)
+        #print Wk[i], gw, pkarr[i],Darr[i]
+    cl *= dchil
+    #cl *= (zlarr[1] - zlarr[0])
+    #Wy = consty * bg * Te * ne
+    return cl
+
+
+@jit(nopython=True)
+def integrate_kk_delta(zlarr, chilarr, chis, anglarr, angs, pkarr, Darr, constk):
     '''
     Uses Eq. 4 of Waerbeke 2014 and I think the power spectrum is non-linear
     '''
@@ -65,11 +88,11 @@ def integrate_kk(zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk,
     Wk = constk * anglarr / aarr
     cl = 0.0
     for i, angl in enumerate(anglarr):
-        gangsarr = angsarr[i+1:]
-        gchisarr = chisarr[i+1:]
-        gw = integrate_zdist(gangsarr, gchisarr, angl, Ns[i+1:])
-        if gw <= 0:
-            gw = 0.
+        gw = 0.0
+        if chis <= chilarr[i]:
+            continue
+        else:
+            gw = (angs - angl) / angs
         cl += (Wk[i] * Wk[i] *  gw * gw * pkarr[i] * Darr[i] * Darr[i] / angl / angl)
         #print Wk[i], gw, pkarr[i],Darr[i]
     cl *= (chilarr[1] - chilarr[0])
@@ -77,12 +100,12 @@ def integrate_kk(zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk,
     return cl
 
 @jit(nopython=True)
-def integrate_ky(bgTene, zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk, consty, chiH, Ns):
+def integrate_ky(bgTene, zlarr, chilarr, chisarr, pkarr, Darr, constk, consty, Ns, dchis):
     '''
     Uses Eq. 4 of Waerbeke 2014 and I think the power spectrum is non-linear
     '''
     aarr = 1. / (1. + zlarr)
-    Wk = constk * anglarr / aarr
+    Wk = constk * chilarr / aarr
     #Wsz = (kB / m_e /c^2) ne * sigma_T * Te * b_gas
     #Wsz = 0.00196 * ne * sigma_T * Te * b_gas 
     #mpctocm = 3.085677581e24
@@ -92,19 +115,18 @@ def integrate_ky(bgTene, zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr,
     #(m^2/K) * K / m^3 = 1/m = 3.085e22/Mpc
     bgTene *= 3.085677581e29
     Wsz = consty * bgTene * aarr 
+    dchil = chilarr[1] - chilarr[0]
     cl = 0.0
-    for i, angl in enumerate(anglarr):
-        gangsarr = angsarr[i+1:]
-        gchisarr = chisarr[i+1:]
-        gw = integrate_zdist(gangsarr, gchisarr, angl, Ns[i+1:])
+    for i, chil in enumerate(chilarr):
+        gw = integrate_zdist(chisarr, chil, Ns, dchis)
         if gw <= 0:
             gw = 0.
-        cl += (Wk[i] * Wsz[i] *  gw * gw * pkarr[i] * Darr[i] * Darr[i] / angl / angl)
+        cl += (Wk[i] * Wsz[i] *  gw * gw * pkarr[i] * Darr[i] * Darr[i] / chil / chil)
         #print Wk[i], gw, pkarr[i],Darr[i]
-    cl *= (chilarr[1] - chilarr[0])
+    cl *= dchil
+    #cl *= (zlarr[1] - zlarr[0])
     #Wy = consty * bg * Te * ne
     return cl
-
 
 if __name__=='__main__':
     #Write variables
@@ -112,18 +134,23 @@ if __name__=='__main__':
     omega_m = 0.264
     h = 0.70
     H0 = h * 100 #(km/s)/Mpc
+    zstr = 'z0p4'
+
+    zdict = {'z0p1':8, 'z0p2':9, 'z0p3':10, 'z0p4':11, 'z0p5':12, 'z0p6':13, 'z0p7':14, 'z0p8':15, 'z0p9':16, 'z1p0':17}
 
     #Source redshift distribution
-    fsource = 'source_distribution_new_z0p4.txt'
+    fsource = 'source_distribution_new_%s.txt'%zstr
+    fsource = 'source_distribution_zs_1.txt'
+    #fsource = 'source_normal_zs_1.txt'
 
     #Data 
     #dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_im3shape_milca_0_0.40.npz'
-    dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_mcal_milca_0_11.00.npz'
+    dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_mcal_milca_0_%.2f.npz'%(zdict[zstr])
 
     fwhm_k = 1 #arcmin for kappa
     fwhm_y = 10 #arcmin for sz map
     rmin = 1 #Inner radius in arcmin 
-    rmax = 1e2 #Outer radius in arcmin
+    rmax = 150 #Outer radius in arcmin
     space = 10 #linear space between two points
     #Stop
 
@@ -131,7 +158,7 @@ if __name__=='__main__':
     sigma_y = fwhm_y * np.pi / 2.355 / 60. /180
     sigmasq = sigma_k * sigma_y 
 
-    rarr = np.arange(1, 100, 2)
+    rarr = np.arange(rmin, rmax, 2)
     rradian = rarr / 60. * np.pi / 180. 
     mlarr = np.linspace(1, 10000, 1000) #larr for interpolate
     dl = mlarr[1] - mlarr[0]
@@ -146,14 +173,21 @@ if __name__=='__main__':
     const = constk * consty
     #print 'constk=%.2e consty=%.2e'%(constk, consty)
 
-    f = np.genfromtxt(fsource)
-    zsarr = f[:,0][1:]
-    Ns = f[:,1][1:]
-    minzs = zsarr.min()
-    maxzs = zsarr.max()
-    zsspl = interp1d(zsarr, Ns, kind='slinear')
- 
-    zlarr = np.arange(0, maxzs, 0.05)    
+    zsarr, Ns = np.genfromtxt(fsource, unpack=True)
+    if np.isscalar(zsarr):
+        maxzs = zsarr
+        minzs = zsarr
+    else:
+        conNs = (Ns != 0.)
+        zsarr = zsarr[conNs]
+        Ns = Ns[conNs]
+        minzs = zsarr.min()
+        maxzs = zsarr.max()
+        print minzs, maxzs
+        zsspl = interp1d(zsarr, Ns, fill_value='extrapolate')
+
+    zmax = np.maximum(maxzl, maxzs) 
+    zlarr = np.linspace(0, zmax, 50)    
 
     kmin = 1e-5
     kmax = 1e4
@@ -171,34 +205,38 @@ if __name__=='__main__':
     #pl.scatter(zsarr, chiarr, c='k')
     #pl.scatter(zsarr, Darr, c='r')
     chizspl = interp1d(chilarr, zlarr, kind='slinear')
+    zchispl = interp1d(zlarr, chilarr, kind='slinear')
     zDarrspl = interp1d(zlarr, Darr, kind='slinear')
     chilarr = np.linspace(chilarr.min(), chilarr.max(), 1000)
     zlarr = chizspl(chilarr)
     Darr = zDarrspl(zlarr)
     #pl.plot(zsarr, Darr, c='g')
     #pl.show()
-    cons = (zlarr > minzs) & (zlarr < maxzs)
-    zsarr = zlarr[cons]
-    chisarr = chilarr[cons]
-
-    conl = (zlarr > 0) & (zlarr < maxzl)
+    if np.isscalar(zsarr):
+        chisarr = np.array([CosmologyFunctions(zsarr).comoving_distance() / h])
+        zsarr = np.array([zsarr])
+        Ns = np.array([Ns])
+        dchis = 1.
+    else:
+        print zsarr.min(), zsarr.max()
+        chisarr = zchispl([zsarr.min(), zsarr.max()])
+        chisarr = np.linspace(chisarr[0], chisarr[1], zsarr.size)
+        dchis = chisarr[1] - chisarr[0]
+        zsarr = chizspl(chisarr) 
+        print zsarr.min(), zsarr.max()
+        #Interpolating source at individual redshift points
+        Ns = zsspl(zsarr)
+        #zint normalization of Eq 2 of Waerbeke
+        print dchis
+        zint = np.sum(Ns[:-1] + Ns[1:]) /2. * dchis
+        #zint = np.sum((Ns[:-1] + Ns[1:]) * (zsarr[1] - zsarr[0])) / 2.
+        print 'zint ', zint
+        Ns /= zint
+    conl = (zlarr > 0) & (zlarr < zmax)
     zlarr = zlarr[conl]
     chilarr = chilarr[conl]
     Darr = Darr[conl]
 
-    anglarr = chilarr / (1. + zlarr)
-    angsarr = chisarr / (1. + zsarr)
-
-    #pl.scatter(zarr, chiarr, c='r')
-    #pl.show()
-
-    #Interpolating source at individual redshift points
-    Ns = zsspl(zsarr)
-
-    #zint normalization of Eq 2 of Waerbeke
-    zint = np.sum((Ns[:-1] + Ns[1:]) * (chisarr[1] - chisarr[0])) / 2.
-    print 'zint ', zint
-    Ns /= zint
     
     #pl.plot(zsarr, Ns)
     #pl.yscale('log')
@@ -211,7 +249,7 @@ if __name__=='__main__':
     #pl.loglog(karr, pk_arr_z0, label='Linear')
 
     #Non-linear power spectrum at z~0
-    fpk = np.genfromtxt('/media/luna1/vinu/software/FrankenEmu/output_pk/pk_nonlin_z0.dat') #0_0.005.dat')
+    fpk = np.genfromtxt('/media/luna1/vinu/software/FrankenEmu/pk_nonlin_z0.dat') #0_0.005.dat')
     karr, pk_arr_z0 = fpk[:,0], fpk[:,1]
     dlnk = np.log(karr[1]/karr[0])
     #pl.savetxt('data/pk_z0.dat', np.transpose((karr, pk_arr_z0)))
@@ -236,31 +274,28 @@ if __name__=='__main__':
     larr = np.logspace(np.log10(1), np.log10(10000), 500)
     Bl = np.exp(-1 * sigmasq * larr * larr)
 
-    angH = angsarr.max()
-    angL = angsarr.min()
-    chiH = chisarr.max()
-    chiL = chisarr.min()
- 
     cl_kk = [] 
     for l in larr:
-        pkarr = pkspl_z0(l/anglarr)
-        cl_kk.append(integrate_kk(zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk, chiH, Ns))
+        pkarr = pkspl_z0(l/chilarr)
+        if np.isscalar(zsarr): 
+            cl_kk.append(integrate_kk_delta(zlarr, chilarr, chisarr, pkarr, Darr, constk))
+        else:
+            cl_kk.append(integrate_kk(zlarr, chilarr, chisarr, pkarr, Darr, constk, Ns, dchis))
     cl_kk = np.array(cl_kk)
     cl_kk_sm = cl_kk * Bl
-    #sys.exit()
     splcl_kk = interp1d(larr, cl_kk)
     splcl_kk_sm = interp1d(larr, cl_kk_sm)
     cl_kk = splcl_kk(mlarr)
     cl_kk_sm = splcl_kk_sm(mlarr)
     xi_kk = np.array([integrate_ell(mlarr, cl_kk, r, dl) for r in rradian])
     xi_kk_sm = np.array([integrate_ell(mlarr, cl_kk_sm, r, dl) for r in rradian])
-    np.savetxt('../data/kk_power_const_bias_z1.dat', np.transpose((mlarr, cl_kk, cl_kk_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
-    np.savetxt('../data/kk_xi_const_bias_z1.dat', np.transpose((rarr, xi_kk, xi_kk_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
+    np.savetxt('../data/kk_power_const_bias_kl1_%s.dat'%zstr, np.transpose((mlarr, cl_kk, cl_kk_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
+    np.savetxt('../data/kk_xi_const_bias_kl1_%s.dat'%zstr, np.transpose((rarr, xi_kk, xi_kk_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
 
     cl_ky = [] 
     for l in larr:
-        pkarr = pkspl_z0(l/anglarr)
-        cl_ky.append(integrate_ky(0.33, zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk, consty, chiH, Ns))
+        pkarr = pkspl_z0(l/chilarr)
+        cl_ky.append(integrate_ky(0.31, zlarr, chilarr, chisarr, pkarr, Darr, constk, consty, Ns, dchis))
     cl_ky = np.array(cl_ky)
     cl_ky_sm = cl_ky * Bl
 
@@ -273,8 +308,8 @@ if __name__=='__main__':
     xi_ky_sm = np.array([integrate_ell(mlarr, cl_ky_sm, r, dl) for r in rradian])
 
 
-    np.savetxt('../data/ky_power_const_bias_z1.dat', np.transpose((mlarr, cl_ky, cl_ky_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
-    np.savetxt('../data/ky_xi_const_bias_z1.dat', np.transpose((rarr, xi_ky, xi_ky_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
+    np.savetxt('../data/ky_power_const_bias_kl1_%s.dat'%zstr, np.transpose((mlarr, cl_ky, cl_ky_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
+    np.savetxt('../data/ky_xi_const_bias_kl1_%s.dat'%zstr, np.transpose((rarr, xi_ky, xi_ky_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
     #np.savetxt('data/pk_%.1f.txt'%redshift, np.transpose((karr, pk_arr))) 
 
     dfile = np.load(dfile)
@@ -283,54 +318,47 @@ if __name__=='__main__':
     ey = dfile['ey']
     ey_cov = dfile['ey_cov']
     ey_cov = np.diagonal(ey_cov)
-    print ey, ey_cov
+    #print ey, ey_cov
     by = dfile['by']
     by_cov = dfile['by_cov']
     by_err = np.sqrt(np.diagonal(by_cov))
     if 0:
         chi2 = [] 
-        barr = np.linspace(0.1, 0.4, 10)
+        barr = np.linspace(0.2, 0.4, 10)
         for bi in barr:
             cl_ky = []
             for l in larr:
-                pkarr = pkspl_z0(l/anglarr)
-                cl_ky.append(integrate_ky(bi, zlarr, chilarr, chisarr, anglarr, angsarr, pkarr, Darr, constk, consty, chiH, Ns))
+                pkarr = pkspl_z0(l/chilarr)
+                cl_ky.append(integrate_ky(bi, zlarr, chilarr, chisarr, pkarr, Darr, constk, consty, Ns, dchis))
             cl_ky = np.array(cl_ky)
             cl_ky_sm = cl_ky * Bl
 
             splcl_ky_sm = interp1d(larr, cl_ky_sm)
             cl_ky_sm = splcl_ky_sm(mlarr)
             xi_ky_sm = np.array([integrate_ell(mlarr, cl_ky_sm, r, dl) for r in rradian])
-            print xi_ky_sm
             chi2.append(((ey-xi_ky_sm)**2/ey_cov).sum())
         np.savetxt('chi2_const_bias.dat', np.transpose((barr, chi2)))
 
 
-    if 1:
+    if 0:
         mytools.matrc_small()
         pl.figure(1)
 
-        f = np.genfromtxt('../data/kk_power_const_bias_z1.dat')
-        larr = f[:,0] 
-        cl = f[:,1]
-        clsm = f[:,2]
-        pl.loglog(mlarr, cl_kk, label=r'$C_\ell^{\kappa \kappa}$')
+        larr, cl, clsm = np.genfromtxt('../data/kk_power_const_bias_kl1_%s.dat'%zstr, unpack=True)
+        pl.loglog(larr, cl, label=r'$C_\ell^{\kappa \kappa}$')
  
-        f = np.genfromtxt('../data/ky_power_const_bias_z1.dat')
-        larr = f[:,0] 
-        cl = f[:,1]
-        clsm = f[:,2]
-        pl.loglog(mlarr, cl_ky, label=r'$C_\ell^{\kappa y}$')
+        larr, cl, clsm = np.genfromtxt('../data/ky_power_const_bias_kl1_%s.dat'%zstr, unpack=True)
+        pl.loglog(larr, cl, label=r'$C_\ell^{\kappa y}$')
 
         pl.legend(loc=0)
         pl.xlabel(r'$\ell$')
         pl.ylabel(r'$C_\ell$')
         pl.show()
+    if 0:
+        mytools.matrc_small()
+        pl.figure(1)
 
-        f = np.genfromtxt('../data/ky_xi_const_bias_z1.dat')
-        rarr = f[:,0]
-        xi = f[:,1]
-        xism = f[:,2]
+        rarr, xi, xism = np.genfromtxt('../data/ky_xi_const_bias_kl1_%s.dat'%zstr, unpack=True)
         pl.errorbar(theta_arcmin, ey, np.sqrt(ey_cov), marker='o', ls='', ms=8)
         pl.plot(rarr, xi, label='Unsmoothed')
         pl.plot(rarr, xism, label='Smoothed')
