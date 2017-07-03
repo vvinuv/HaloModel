@@ -1,6 +1,5 @@
 import os
 import sys
-import config
 import numpy as np
 from numpy import vectorize
 from scipy import interpolate, integrate
