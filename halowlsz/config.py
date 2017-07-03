@@ -136,7 +136,7 @@ default_cosmo_dict = {
 default_cosmo_dict = {
     "omega_m0": 0.25, 
     "omega_b0": 0.043,
-    "omega_l0": 0.75, 
+    #"omega_l0": 0.75, 
     "omega_r0": 0.,
     "cmb_temp": 2.726,
     "h"       : 0.72,

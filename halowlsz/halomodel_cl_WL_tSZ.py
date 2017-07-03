@@ -430,7 +430,7 @@ def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sig
     cl1h = np.array(cl1h_arr) * convolve
     cl2h = np.array(cl2h_arr) * convolve
     
-    if config['haloparams']['savefile']:
+    if config.getboolean('haloparams', 'savefile'):
         if ky:
             np.savetxt(os.path.join(odir, 'cl_ky.dat'), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
         if kk:
