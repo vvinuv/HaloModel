@@ -172,7 +172,7 @@ def integrate_yyhalo(ell, lnzarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho
     return cl1h, cl2h, cl
 
 
-def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sigma_8=0.8, P01=18.1, P02=0.154, P03=-0.758, xc1=0.497, xc2=-0.00865, xc3=0.731, beta1=4.35, beta2=0.0393, beta3=0.415, odir='../data', default_pp=True):
+def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sigma_8=0.8, P01=18.1, P02=0.154, P03=-0.758, xc1=0.497, xc2=-0.00865, xc3=0.731, beta1=4.35, beta2=0.0393, beta3=0.415, odir='../data', default_pp=True, doPrintCl=True):
     '''
     Compute WL X tSZ halomodel for a given source redshift distribution 
     '''
@@ -192,39 +192,6 @@ def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sig
     omega_b0 = float(config['cosmology']['omega_b0'])
     h0 = float(config['cosmology']['h0'])
     n_scalar = float(config['cosmology']['n_scalar'])
-    if ky:
-        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
-        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
-        sigmasq = sigma_k * sigma_y
-    elif kk:
-        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
-        sigmasq = sigma_k * sigma_k
-    elif yy:
-        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
-        sigmasq = sigma_y * sigma_y
-    else:
-        raise ValueError('Either kk, yy or ky should be True')
-
-
-    cosmo0 = CosmologyFunctions(0, omega_b0=omega_b0, omega_m0=omega_m0, h0=h0, sigma_8=sigma_8, n_scalar=n_scalar)
-    h0 = cosmo0._h
-
-    light_speed = float(config['constants']['light_speed']) #km/s
-    mpctocm = float(config['constants']['mpctocm'])
-    kB_kev_K = float(config['constants']['kB_kev_K'])
-    sigma_t_cm = float(config['constants']['sigma_t_cm']) #cm^2
-    rest_electron_kev = float(config['constants']['rest_electron_kev']) #keV
-    constk = 3. * omega_m0 * (h0 * 100. / light_speed)**2. / 2. #Mpc^-2
-    consty = mpctocm * sigma_t_cm / rest_electron_kev 
-
-    zsarr, Ns = np.genfromtxt(zsfile, unpack=True)
-    if np.isscalar(zsarr):
-        zsarr = np.array([zsarr])
-        Ns = np.array([Ns])
-    else:
-        zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
-        Ns /= zint
-
 
     kRmax = float(config['limits']['kRmax'])
     kRspace = int(config['limits']['kRspace'])
@@ -242,6 +209,39 @@ def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sig
     zmin = float(config['limits']['zmin'])
     zmax = float(config['limits']['zmax'])
     zspace = int(config['limits']['zspace'])
+
+    light_speed = float(config['constants']['light_speed']) #km/s
+    mpctocm = float(config['constants']['mpctocm'])
+    kB_kev_K = float(config['constants']['kB_kev_K'])
+    sigma_t_cm = float(config['constants']['sigma_t_cm']) #cm^2
+    rest_electron_kev = float(config['constants']['rest_electron_kev']) #keV
+    constk = 3. * omega_m0 * (h0 * 100. / light_speed)**2. / 2. #Mpc^-2
+    consty = mpctocm * sigma_t_cm / rest_electron_kev 
+
+    if ky:
+        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
+        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_k * sigma_y
+    elif kk:
+        sigma_k = fwhm_k * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_k * sigma_k
+    elif yy:
+        sigma_y = fwhm_y * np.pi / 2.355 / 60. /180. #angle in radian
+        sigmasq = sigma_y * sigma_y
+    else:
+        raise ValueError('Either kk, yy or ky should be True')
+
+
+    cosmo0 = CosmologyFunctions(0, omega_b0=omega_b0, omega_m0=omega_m0, h0=h0, sigma_8=sigma_8, n_scalar=n_scalar)
+
+    zsarr, Ns = np.genfromtxt(zsfile, unpack=True)
+    if np.isscalar(zsarr):
+        zsarr = np.array([zsarr])
+        Ns = np.array([Ns])
+    else:
+        zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
+        Ns /= zint
+
 
     dlnk = np.log(kmax/kmin) / kspace
     lnkarr = np.linspace(np.log(kmin), np.log(kmax), kspace)
@@ -268,7 +268,8 @@ def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sig
     zarr = np.exp(lnzarr) - 1.0
     dlnz = np.log((1.+zmax)/(1.+zmin)) / zspace
 
-    print 'dlnk, dlnm dlnz', dlnk, dlnm, dlnz
+    if doPrintCl:
+        print 'dlnk, dlnm dlnz', dlnk, dlnm, dlnz
     #No little h
     #Need to give mass * h and get the sigma without little h
     #The following lines are used only used for ST MF and ST bias
@@ -423,7 +424,8 @@ def cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=0.25, sig
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
-        print ell, cl1h, cl2h, cl
+        if doPrintCl:
+            print ell, cl1h, cl2h, cl
 
     convolve = np.exp(-1 * sigmasq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
     cl = np.array(cl_arr) * convolve

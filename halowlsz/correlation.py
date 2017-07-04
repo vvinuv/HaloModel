@@ -45,17 +45,18 @@ def correlation():
 
 
 def xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10, 
-              kk=False, yy=False, ky=True, 
+              kk=False, yy=False, ky=True, rarcmin=None, 
               zsfile='source_distribution.txt', omega_m0=0.25, sigma_8=0.8, 
               P01=18.1, P02=0.154, P03=-0.758, xc1=0.497, xc2=-0.00865, 
               xc3=0.731, beta1=4.35, beta2=0.0393, beta3=0.415, 
-              default_pp=False,
+              default_pp=False, doPrintCl=True,
               paramsfile='wlxtsz.ini', odir='../data', ofile='test.dat'):
     '''
     Given the radius array in arcmin it will return the halomodel
     '''
     config.read(paramsfile)
-    rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
+    if rarcmin is None:
+        rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
     rradian = rarcmin / 60. * np.pi / 180.
     ellarr, cl1h, cl2h, cl = cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, 
                                        yy, ky, zsfile, 
@@ -63,7 +64,8 @@ def xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10,
                                        P01=P01, P02=P02, P03=P03, 
                                        xc1=xc1, xc2=xc2, xc3=xc3, 
                                        beta1=beta1, beta2=beta2, beta3=beta3, 
-                                       default_pp=default_pp)
+                                       default_pp=default_pp, odir=odir,
+                                       doPrintCl=doPrintCl)
     #pl.loglog(ellarr, cl, c='k', label='original')
     clspl = InterpolatedUnivariateSpline(ellarr, cl, k=3)
     cl1hspl = InterpolatedUnivariateSpline(ellarr, cl1h, k=3)
@@ -101,7 +103,8 @@ if __name__=='__main__':
                                         xc3=0.731, beta1=4.35, beta2=0.0393, 
                                         beta3=0.415, default_pp=False,
                                         paramsfile='wlxtsz.ini', 
-                                        odir='../data', ofile=ofile)
+                                        odir='../data', ofile=ofile, 
+                                        doPrintCl=True)
     pl.plot(rarcmin, xi1h, label='1- halo model')
     pl.plot(rarcmin, xi2h, label='2- halo model')
     pl.plot(rarcmin, xi, label='Halo model')
