@@ -4,7 +4,7 @@ from numba import jit
 from scipy import special
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
-from halomodel_cl_WL_tSZ import cl_WL_tSZ
+from halowlsz.halomodel_cl_WL_tSZ import cl_WL_tSZ
 import pylab as pl
 
 import configparser

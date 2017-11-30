@@ -9,11 +9,11 @@ import pylab as pl
 from numba import jit
 import timeit
 #import fastcorr
-from CosmologyFunctions import CosmologyFunctions
-from mass_function import halo_bias_st, halo_bias_tinker, bias_mass_func_st, bias_mass_func_tinker, bias_mass_func_bocquet
-from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
-from pressure_profiles import battaglia_profile_2d
-from lensing_efficiency import Wkcom
+from halowlsz.CosmologyFunctions import CosmologyFunctions
+from halowlsz.mass_function import halo_bias_st, halo_bias_tinker, bias_mass_func_st, bias_mass_func_tinker, bias_mass_func_bocquet
+from halowlsz.convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
+from halowlsz.pressure_profiles import battaglia_profile_2d
+from halowlsz.lensing_efficiency import Wkcom
 import configparser
 config = configparser.ConfigParser()
 

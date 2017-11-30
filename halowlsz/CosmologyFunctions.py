@@ -609,8 +609,9 @@ class CosmologyFunctions:
 
 
 if __name__=='__main__':
-    redshift = 0.0
+    redshift = 0.0231
     cosmo = CosmologyFunctions(redshift)
+    print '%.5f'%(cosmo.E(redshift))
     print '%.2e'%cosmo.rho_bar()
     print cosmo.omega_m()
     print '%.3e'%((cosmo.E(redshift)/cosmo._h) * cosmo.comoving_distance()**2/cosmo._h**2)

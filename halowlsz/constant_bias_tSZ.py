@@ -1,6 +1,5 @@
 import os
 import sys
-import config
 import numpy as np
 from numpy import vectorize
 from scipy import interpolate, integrate
@@ -128,41 +127,10 @@ def integrate_ky(bgTene, zlarr, chilarr, chisarr, pkarr, Darr, constk, consty, N
     #Wy = consty * bg * Te * ne
     return cl
 
-if __name__=='__main__':
-    #Write variables
-    maxzl = 1.0
-    omega_m = 0.264
-    h = 0.70
-    H0 = h * 100 #(km/s)/Mpc
-    zstr = 'z0p4'
-
-    zdict = {'z0p1':8, 'z0p2':9, 'z0p3':10, 'z0p4':11, 'z0p5':12, 'z0p6':13, 'z0p7':14, 'z0p8':15, 'z0p9':16, 'z1p0':17}
-
-    #Source redshift distribution
-    fsource = 'source_distribution_new_%s.txt'%zstr
-    fsource = 'source_distribution_zs_1.txt'
-    #fsource = 'source_normal_zs_1.txt'
-
-    #Data 
-    #dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_im3shape_milca_0_0.40.npz'
-    dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_mcal_milca_0_%.2f.npz'%(zdict[zstr])
-
-    fwhm_k = 1 #arcmin for kappa
-    fwhm_y = 10 #arcmin for sz map
-    rmin = 1 #Inner radius in arcmin 
-    rmax = 150 #Outer radius in arcmin
-    space = 10 #linear space between two points
-    #Stop
-
-    sigma_k = fwhm_k * np.pi / 2.355 / 60. /180
-    sigma_y = fwhm_y * np.pi / 2.355 / 60. /180
-    sigmasq = sigma_k * sigma_y 
-
-    rarr = np.arange(rmin, rmax, 2)
-    rradian = rarr / 60. * np.pi / 180. 
-    mlarr = np.linspace(1, 10000, 1000) #larr for interpolate
-    dl = mlarr[1] - mlarr[0]
-
+def constant_bias_tsz(maxzl, omega_m, h, H0, zstr, fsource, dfile, fwhm_k, fwhm_y, rmin, rmax, space, odir, do_plot=False):
+    '''
+    Return constant bias when given tSZ
+    ''' 
 
     light_speed = 2.998e5 #km/s
     kB_kev_K = 8.617330e-8 #keV/K
@@ -172,6 +140,15 @@ if __name__=='__main__':
     consty = kB_kev_K  * sigma_t_m / rest_electron_kev #m^2/K 
     const = constk * consty
     #print 'constk=%.2e consty=%.2e'%(constk, consty)
+
+    sigma_k = fwhm_k * np.pi / 2.355 / 60. /180
+    sigma_y = fwhm_y * np.pi / 2.355 / 60. /180
+    sigmasq = sigma_k * sigma_y 
+
+    rarr = np.arange(rmin, rmax, 2)
+    rradian = rarr / 60. * np.pi / 180. 
+    mlarr = np.linspace(1, 10000, 1000) #larr for interpolate
+    dl = mlarr[1] - mlarr[0]
 
     zsarr, Ns = np.genfromtxt(fsource, unpack=True)
     if np.isscalar(zsarr):
@@ -183,7 +160,7 @@ if __name__=='__main__':
         Ns = Ns[conNs]
         minzs = zsarr.min()
         maxzs = zsarr.max()
-        print minzs, maxzs
+        print 'z={:.2f} to {:.2f}'.format(minzs, maxzs)
         zsspl = interp1d(zsarr, Ns, fill_value='extrapolate')
 
     zmax = np.maximum(maxzl, maxzs) 
@@ -249,7 +226,8 @@ if __name__=='__main__':
     #pl.loglog(karr, pk_arr_z0, label='Linear')
 
     #Non-linear power spectrum at z~0
-    fpk = np.genfromtxt('/media/luna1/vinu/software/FrankenEmu/pk_nonlin_z0.dat') #0_0.005.dat')
+    #fpk = np.genfromtxt('/media/luna1/vinu/software/FrankenEmu/pk_nonlin_z0.dat') #0_0.005.dat')
+    fpk = np.genfromtxt('pk_nonlin_z0.dat') #0_0.005.dat')
     karr, pk_arr_z0 = fpk[:,0], fpk[:,1]
     dlnk = np.log(karr[1]/karr[0])
     #pl.savetxt('data/pk_z0.dat', np.transpose((karr, pk_arr_z0)))
@@ -289,8 +267,8 @@ if __name__=='__main__':
     cl_kk_sm = splcl_kk_sm(mlarr)
     xi_kk = np.array([integrate_ell(mlarr, cl_kk, r, dl) for r in rradian])
     xi_kk_sm = np.array([integrate_ell(mlarr, cl_kk_sm, r, dl) for r in rradian])
-    np.savetxt('../data/kk_power_const_bias_kl1_%s.dat'%zstr, np.transpose((mlarr, cl_kk, cl_kk_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
-    np.savetxt('../data/kk_xi_const_bias_kl1_%s.dat'%zstr, np.transpose((rarr, xi_kk, xi_kk_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
+    np.savetxt(os.path.join(odir, 'kk_power_const_bias_kl1_%s.dat'%zstr), np.transpose((mlarr, cl_kk, cl_kk_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
+    np.savetxt(os.path.join(odir, 'kk_xi_const_bias_kl1_%s.dat'%zstr), np.transpose((rarr, xi_kk, xi_kk_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
 
     cl_ky = [] 
     for l in larr:
@@ -308,8 +286,8 @@ if __name__=='__main__':
     xi_ky_sm = np.array([integrate_ell(mlarr, cl_ky_sm, r, dl) for r in rradian])
 
 
-    np.savetxt('../data/ky_power_const_bias_kl1_%s.dat'%zstr, np.transpose((mlarr, cl_ky, cl_ky_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
-    np.savetxt('../data/ky_xi_const_bias_kl1_%s.dat'%zstr, np.transpose((rarr, xi_ky, xi_ky_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
+    np.savetxt(os.path.join(odir, 'ky_power_const_bias_kl1_%s.dat'%zstr), np.transpose((mlarr, cl_ky, cl_ky_sm)), fmt='%.2f %.3e %.3e', header='l Cl_kk Cl_kk_smoothed')
+    np.savetxt(os.path.join(odir, 'ky_xi_const_bias_kl1_%s.dat'%zstr), np.transpose((rarr, xi_ky, xi_ky_sm)), fmt='%.2f %.3e %.3e', header='arcmin xi xi_smoothed')
     #np.savetxt('data/pk_%.1f.txt'%redshift, np.transpose((karr, pk_arr))) 
 
     dfile = np.load(dfile)
@@ -319,9 +297,9 @@ if __name__=='__main__':
     ey_cov = dfile['ey_cov']
     ey_cov = np.diagonal(ey_cov)
     #print ey, ey_cov
-    by = dfile['by']
-    by_cov = dfile['by_cov']
-    by_err = np.sqrt(np.diagonal(by_cov))
+    #by = dfile['by']
+    #by_cov = dfile['by_cov']
+    #by_err = np.sqrt(np.diagonal(by_cov))
     if 0:
         chi2 = [] 
         barr = np.linspace(0.2, 0.4, 10)
@@ -337,28 +315,28 @@ if __name__=='__main__':
             cl_ky_sm = splcl_ky_sm(mlarr)
             xi_ky_sm = np.array([integrate_ell(mlarr, cl_ky_sm, r, dl) for r in rradian])
             chi2.append(((ey-xi_ky_sm)**2/ey_cov).sum())
-        np.savetxt('chi2_const_bias.dat', np.transpose((barr, chi2)))
+        np.savetxt(os.path.join(odir, 'chi2_const_bias.dat'), np.transpose((barr, chi2)))
 
 
-    if 0:
+    if do_plot and 0:
         mytools.matrc_small()
         pl.figure(1)
 
-        larr, cl, clsm = np.genfromtxt('../data/kk_power_const_bias_kl1_%s.dat'%zstr, unpack=True)
+        larr, cl, clsm = np.genfromtxt(os.path.join(odir, 'kk_power_const_bias_kl1_%s.dat'%zstr), unpack=True)
         pl.loglog(larr, cl, label=r'$C_\ell^{\kappa \kappa}$')
  
-        larr, cl, clsm = np.genfromtxt('../data/ky_power_const_bias_kl1_%s.dat'%zstr, unpack=True)
+        larr, cl, clsm = np.genfromtxt(os.path.join(odir, 'ky_power_const_bias_kl1_%s.dat'%zstr), unpack=True)
         pl.loglog(larr, cl, label=r'$C_\ell^{\kappa y}$')
 
         pl.legend(loc=0)
         pl.xlabel(r'$\ell$')
         pl.ylabel(r'$C_\ell$')
         pl.show()
-    if 0:
+    if do_plot:
         mytools.matrc_small()
         pl.figure(1)
 
-        rarr, xi, xism = np.genfromtxt('../data/ky_xi_const_bias_kl1_%s.dat'%zstr, unpack=True)
+        rarr, xi, xism = np.genfromtxt(os.path.join(odir, 'ky_xi_const_bias_kl1_%s.dat'%zstr), unpack=True)
         pl.errorbar(theta_arcmin, ey, np.sqrt(ey_cov), marker='o', ls='', ms=8)
         pl.plot(rarr, xi, label='Unsmoothed')
         pl.plot(rarr, xism, label='Smoothed')
@@ -366,4 +344,32 @@ if __name__=='__main__':
         pl.xlim([0, 100])
         pl.show()
 
+if __name__=='__main__':
+    #Write variables
+    maxzl = 1.0
+    omega_m = 0.264
+    h = 0.70
+    H0 = h * 100 #(km/s)/Mpc
+    zstr = 'z0p4'
+    odir = '../data'
 
+    zdict = {'z0p1':8, 'z0p2':9, 'z0p3':10, 'z0p4':11, 'z0p5':12, 'z0p6':13, 'z0p7':14, 'z0p8':15, 'z0p9':16, 'z1p0':17}
+
+    #Source redshift distribution
+    fsource = 'source_distribution_new_%s.txt'%zstr
+    #fsource = 'source_distribution_zs_1.txt'
+    #fsource = 'source_normal_zs_1.txt'
+
+    #Data 
+    #dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_im3shape_milca_0_0.40.npz'
+    dfile = '/media/luna1/vinu/Lensing/DES/Kappa_map/SVA1/des_sz/kappa_y_y1_mcal_milca_0_%.2f.npz'%(zdict[zstr])
+
+    dfile = '/homes/vvikraman/des_sz/data/kappa_y_y1_mcal_milca_0_11.00_bs1p0_sb_rebin.npz'
+    fwhm_k = 1 #arcmin for kappa
+    fwhm_y = 10 #arcmin for sz map
+    rmin = 1 #Inner radius in arcmin 
+    rmax = 150 #Outer radius in arcmin
+    space = 10 #linear space between two points
+    #Stop
+
+    constant_bias_tsz(maxzl, omega_m, h, H0, zstr, fsource, dfile, fwhm_k, fwhm_y, rmin, rmax, space, odir, do_plot=True)
