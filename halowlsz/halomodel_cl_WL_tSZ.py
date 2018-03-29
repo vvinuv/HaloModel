@@ -284,7 +284,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                     marr2.append(marr)
                     dlnmdlnm.append(np.ones_like(marr))
                 else:
-                    mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
+                    mFrac = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, config.MassDef/cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
                     mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append([dlnMdensitydlnMcritOR200(config.MassDef * cosmo.omega_m(), bn, mFm/cosmo_h, mv, zi, cosmo_h, 1) for mv,mFm in zip(marr, mFrac)]) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
@@ -293,7 +293,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                 input_mvir = 1
             elif config.MassToIntegrate == 'm200c':
                 #XXX
-                #m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
+                #m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200/cosmo.omega_m(), cosmo_h, 0)[2] for mv in marr]) #* cosmo_h
                 #print m200m
                 #XXX
                 if 200./cosmo.omega_m() > 200:
@@ -303,7 +303,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                     marr2.append(marr)
                     dlnmdlnm.append(np.ones_like(marr))
                 else:
-                    mFrac = np.array([HuKravtsov(zi, m2c, rcrit, rbar, 200, config.MassDef*cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
+                    mFrac = np.array([HuKravtsov(zi, m2c, rcrit, rbar, 200, config.MassDef/cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
                     mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.MassDef, marr=mFrac)[1])
                     marr2.append(marr)
                     for m2,mFm in zip(marr, mFrac):
@@ -312,7 +312,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
             elif config.MassToIntegrate == 'm200m':
                 #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
                 #Temporary mass array of m200m from m200c
-                tm200m = np.array([HuKravtsov(zi, tt, rcrit, rbar, 200, 200.*cosmo.omega_m(), cosmo._h, 0)[2] for tt in tm200c])
+                tm200m = np.array([HuKravtsov(zi, tt, rcrit, rbar, 200, 200./cosmo.omega_m(), cosmo._h, 0)[2] for tt in tm200c])
                 #m200m vs m200c spline 
                 tmspl = InterpolatedUnivariateSpline(tm200m, tm200c)
                 #Now m200c from m200m, i.e. tmarr which is the integrating
