@@ -173,7 +173,6 @@ def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
         lnSigma_m_lnM_derivative = abs((ln_sigma_m_array[1] - ln_sigma_m_array[0]) / (ln_mass_array[1] - ln_mass_array[0]))#1 for first derivate
 
         nu = cosmo.nu_m(m)
-        nusq = np.sqrt(nu)
  
         #This is (delta_c/sigma(m))^2. Here delta_c is slightly dependence on 
         #Omega_m across redshift. cosmo._growth is the growth fucntion
@@ -194,6 +193,23 @@ def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
     return marr, mf
 
 
+def halo_bias_tinker(Delta, nu):
+    '''
+    Tinker et al 2010. Table 2 and Eq. 6
+    '''
+    #raise("Work in progress")
+    y = np.log10(Delta)
+    A = 1.0 + 0.24 * y * np.exp(-(4/y)**4)
+    alpha = 0.44 * y - 0.88
+    B = 0.183
+    beta = 1.5
+    C = 0.019 + 0.107*y + 0.19*np.exp(-(4/y)**4)
+    ceta = 2.4
+    delta = 1.686
+    bias = 1. - A*(nu**alpha)/(nu**alpha + delta**alpha) + \
+           B* nu**beta + C* nu**ceta
+    return bias
+ 
 def bias_mass_func_tinker(redshift, lM, uM, mspace, bias=True, Delta=200, mtune=False, marr=None, reduced=False):
     '''
     Wrote on Jan 26, 2017
@@ -326,11 +342,11 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
     mspace : mass space
     bias : if weighted by ST bias (Doesn't work now)
 
-    M200 -solar unit
+    M200 -solar unit/h
 
     Both the output have no little h
     mass function in dn/dlnM200 in 1/Mpc^3
-    marr solar unit 
+    marr solar unit/h
 
     '''
 
@@ -357,6 +373,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
         marr = np.hstack([marr13, marr14, marr15, marr16])
         lnmarr = np.log(marr)
     elif marr is not None:
+        marr = marr / cosmo_h
         lnmarr = np.log(marr)
     else:
         dlnm = np.float64(np.log(uM200/lM200) / mspace)
@@ -364,9 +381,8 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
         marr = np.exp(lnmarr).astype(np.float64)
     #print 'dlnm ', dlnm
     #No little h
-    #Need to give mass * h and get the sigma without little h
-    sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo0._h) for m in marr])
-    ##sigma_m0 = np.array([cosmo0.sigma_m(m) for m in marr])
+    #Mass is in the unit of Solar/h and get the sigma without little h
+    sigma_m0 = np.array([cosmo0.sigma_m(m * cosmo_h) for m in marr])
     rho_norm0 = cosmo0.rho_bar()
     #print marr, sigma_m0
 

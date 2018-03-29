@@ -75,10 +75,10 @@ if __name__=='__main__':
     #cosmo = CosmologyFunctions(z)
     #print(MvirTomMRfrac(1e14, z, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.rho_bar() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.))
     #print(cosmo.BryanDelta(), 200*cosmo.omega_m()) 
-    #print(HuKravtsov(z, 1e14, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo0.rho_bar() * cosmo0._h * cosmo0._h, cosmo.BryanDelta(), 200*cosmo.omega_m(), cosmo_h, 1))
+    #print(HuKravtsov(z, 1e14, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.BryanDelta(), 200*cosmo.omega_m(), cosmo_h, 1))
     #print(cosmo.BryanDelta(), 200) 
     #print(MvirToMRfrac(1e14, z, cosmo.BryanDelta(), cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.0))
-    #print(HuKravtsov(z, 1e14, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.BryanDelta(), 200, cosmo_h, 1))
+    #print(HuKravtsov(z, 1e14, cosmo.rho_crit() * cosmo0._h * cosmo0._h, cosmo.BryanDelta(), 200, cosmo_h, 1))
     #m2m = MvirTomMRfrac(1e11, 0., cosmo0.BryanDelta(), cosmo0.rho_crit() * cosmo0._h * cosmo0._h, cosmo0.rho_bar() * cosmo0._h * cosmo0._h, cosmo_h, frac=200.)[2]
     #print(dlnMdensitydlnMcritOR200(200. * cosmo0.omega_m(), cosmo0.BryanDelta(), m2m, 1e11, 0, cosmo_h))
     #sys.exit()
@@ -125,7 +125,7 @@ if __name__=='__main__':
         #Number of Msun objects/Mpc^3 (i.e. unit is 1/Mpc^3)
         if config.MF =='Tinker':
             if config.MassToIntegrate == 'virial':
-                m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
+                m200m = np.array([HuKravtsov(zi, mv, rcrit, bn, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
                 for mv,m2m in zip(marr, m200m):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), bn, m2m/cosmo_h, mv, zi, cosmo_h))
@@ -135,14 +135,14 @@ if __name__=='__main__':
                 #    dlnmdlnm.append(dlnMdensitydlnMcritOR200(400. * cosmo.omega_m(), bn, m4m/cosmo_h, mv, zi, cosmo_h))
                 input_mvir = 1
             elif config.MassToIntegrate == 'm200':
-                m200m = np.array([HuKravtsov(zi, mv, rcrit, rbar, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
+                m200m = np.array([HuKravtsov(zi, mv, rcrit, 200, 200*cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h
                 mf.append(bias_mass_func_tinker(zi, m200m.min(), m200m.max(), mspace, bias=False, Delta=200, marr=m200m)[1])
                 for m2,m2m in zip(marr, m200m):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200. * cosmo.omega_m(), 200., m2m/cosmo_h, m2, zi, cosmo_h))
                 input_mvir = 0
         elif config.MF == 'Bocquet':
             if config.MassToIntegrate == 'virial':
-                m200 = np.array([HuKravtsov(zi, mv, rcrit, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
+                m200 = np.array([HuKravtsov(zi, mv, rcrit, bn, 200, cosmo_h, 1)[2] for mv in marr])
                 mf.append(bias_mass_func_bocquet(zi, m200.min(), m200.max(), mspace, bias=False, marr=m200)[1])
                 for mv,m2 in zip(marr, m200):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h))

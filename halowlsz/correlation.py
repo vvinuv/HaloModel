@@ -4,9 +4,11 @@ from numba import jit
 from scipy import special
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
-import config
-from halomodel_cl_WL_tSZ import cl_WL_tSZ
+from halowlsz.halomodel_cl_WL_tSZ import cl_WL_tSZ
 import pylab as pl
+
+import configparser
+config = configparser.ConfigParser()
 
 @jit(nopython=True)
 def integrate_rad(theta_radian, xi, ell, dt):
@@ -42,16 +44,28 @@ def correlation():
     return xi 
 
 
-def xi_wl_tsz(rmin=1e-2, rmax=100, rbin=100, fwhm_k=1, fwhm_y=10, 
-              kk=False, yy=False, ky=True, 
-              zsfile='source_distribution.txt', odir='../data',
-              ofile='test.dat'):
+def xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10, 
+              kk=False, yy=False, ky=True, rarcmin=None, 
+              zsfile='source_distribution.txt', omega_m0=0.25, sigma_8=0.8, 
+              P01=18.1, P02=0.154, P03=-0.758, xc1=0.497, xc2=-0.00865, 
+              xc3=0.731, beta1=4.35, beta2=0.0393, beta3=0.415, 
+              default_pp=False, doPrintCl=True,
+              paramsfile='wlxtsz.ini', odir='../data', ofile='test.dat'):
     '''
     Given the radius array in arcmin it will return the halomodel
     '''
-    rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
+    config.read(paramsfile)
+    if rarcmin is None:
+        rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
     rradian = rarcmin / 60. * np.pi / 180.
-    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile)
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, 
+                                       yy, ky, zsfile, 
+                                       omega_m0=omega_m0, sigma_8=sigma_8, 
+                                       P01=P01, P02=P02, P03=P03, 
+                                       xc1=xc1, xc2=xc2, xc3=xc3, 
+                                       beta1=beta1, beta2=beta2, beta3=beta3, 
+                                       default_pp=default_pp, odir=odir,
+                                       doPrintCl=doPrintCl)
     #pl.loglog(ellarr, cl, c='k', label='original')
     clspl = InterpolatedUnivariateSpline(ellarr, cl, k=3)
     cl1hspl = InterpolatedUnivariateSpline(ellarr, cl1h, k=3)
@@ -66,7 +80,7 @@ def xi_wl_tsz(rmin=1e-2, rmax=100, rbin=100, fwhm_k=1, fwhm_y=10,
     xi1h = np.array([integrate_ell(ellarr, cl1h, r, dl) for r in rradian])
     xi2h = np.array([integrate_ell(ellarr, cl2h, r, dl) for r in rradian])
     xi = np.array([integrate_ell(ellarr, cl, r, dl) for r in rradian])
-    if config.savefile:
+    if config['haloparams']['savefile']:
         if ky:
             np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
         if kk:
@@ -77,12 +91,20 @@ def xi_wl_tsz(rmin=1e-2, rmax=100, rbin=100, fwhm_k=1, fwhm_y=10,
     return rarcmin, xi1h, xi2h, xi
 
 if __name__=='__main__':
-    ofile = 'xi_yy.dat'
-    zsfile = 'source_distribution_new_z0p1.txt'
-    rarcmin, xi1h, xi2h, xi = xi_wl_tsz(1e-2, 100, 100, 
-                                        fwhm_k=0, fwhm_y=0., 
-                                        kk=False, yy=True, ky=False,
-                                        zsfile=zsfile, ofile=ofile)
+    ofile = 'xi_ky.dat'
+    zsfile = 'source_distribution_new_z0p4.txt'
+    rarcmin, xi1h, xi2h, xi = xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, 
+                                        fwhm_k=1, fwhm_y=10,
+                                        kk=False, yy=False, ky=True,
+                                        zsfile='source_distribution.txt', 
+                                        omega_m0=0.25, sigma_8=0.8,
+                                        P01=18.1, P02=0.154, P03=-0.758, 
+                                        xc1=0.497, xc2=-0.00865,
+                                        xc3=0.731, beta1=4.35, beta2=0.0393, 
+                                        beta3=0.415, default_pp=False,
+                                        paramsfile='wlxtsz.ini', 
+                                        odir='../data', ofile=ofile, 
+                                        doPrintCl=True)
     pl.plot(rarcmin, xi1h, label='1- halo model')
     pl.plot(rarcmin, xi2h, label='2- halo model')
     pl.plot(rarcmin, xi, label='Halo model')

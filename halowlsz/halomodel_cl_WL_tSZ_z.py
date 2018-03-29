@@ -14,11 +14,12 @@ from CosmologyFunctions import CosmologyFunctions
 from mass_function import halo_bias_st, bias_mass_func_tinker, bias_mass_func_bocquet
 from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
 from pressure_profiles import battaglia_profile_2d
+from lensing_efficiency import Wkcom
 
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
 @jit(nopython=True)
-def Wk(zl, chil, zsarr, chisarr, Ns, constk):
+def Wk_just_calling_from_lensing_efficiencyc(zl, chil, zsarr, chisarr, Ns, constk):
     #zl = lens redshift
     #chil = comoving distant to lens
     #zsarr = redshift distribution of source
@@ -47,8 +48,8 @@ def integrate_kyhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
     jj = 0
     for i, zi in enumerate(zarr):
         zp = 1. + zi
-        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
-        kl_yl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
+        #print  zi, Wkcom(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        kl_yl_multi = Wkcom(zi, chiarr[i], zsarr, chisarr, Ns, constk) * consty / chiarr[i] / chiarr[i] / rhobarr[i] 
         mint = 0.0
         mk2 = 0.0
         my2 = 0.0
@@ -100,8 +101,8 @@ def integrate_kkhalo(ell, zarr, chiarr, dVdzdOm, marr, mf, BDarr, rhobarr, rho_c
     jj = 0
     for i, zi in enumerate(zarr):
         zp = 1. + zi
-        #print  zi, Wk(zi, chiarr[i], zsarr, angsarr, Ns, constk)
-        kl_multi = Wk(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
+        #print  zi, Wkcom(zi, chiarr[i], zsarr, angsarr, Ns, constk)
+        kl_multi = Wkcom(zi, chiarr[i], zsarr, chisarr, Ns, constk) / chiarr[i] / chiarr[i] / rhobarr[i] 
         mint = 0.0
         mk2 = 0.0
         #for mi in marr:
@@ -203,11 +204,13 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
     constk = 3. * omega_m0 * (cosmo_h * 100. / light_speed)**2. / 2. #Mpc^-2
     consty = mpctocm * sigma_t_cm / rest_electron_kev 
 
-    fz= np.genfromtxt(zsfile)
-    zsarr = fz[:,0]
-    Ns = fz[:,1]
-    zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
-    Ns /= zint
+    zsarr, Ns = np.genfromtxt(zsfile, unpack=True)
+    if np.isscalar(zsarr):
+        zsarr = np.array([zsarr])
+        Ns = np.array([Ns])
+    else:
+        zint = np.sum(Ns) * (zsarr[1] - zsarr[0])
+        Ns /= zint
 
     kmin = config.kmin #1/Mpc
     kmax = config.kmax
@@ -327,7 +330,7 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
                 for mv,m2 in zip(marr, m200):
                     dlnmdlnm.append(dlnMdensitydlnMcritOR200(200., bn, m2, mv, zi, cosmo_h, 1))
                 input_mvir = 1
-            elif config.MassToIntegrate == 'm200':
+            elif config.MassToIntegrate == 'm200c':
                 tmf = bias_mass_func_bocquet(zi, marr.min(), marr.max(), mspace, bias=False, marr=marr)[1]
                 mf.append(tmf)
                 dlnmdlnm.append(np.ones(len(tmf)))
@@ -390,10 +393,11 @@ def cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data'):
 if __name__=='__main__':
     fwhm_k = 0.0
     fwhm_y = 0.0
-    kk = 0
-    yy = 1
+    kk = 1
+    yy = 0
     ky = 0
     zsfile = 'source_distribution.txt'
+    zsfile = 'source_distribution_zs_1.txt'
 
     ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data')
 

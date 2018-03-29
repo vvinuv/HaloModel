@@ -1,6 +1,5 @@
 import os
 import sys
-import config
 import numpy as np
 from numpy import vectorize
 from scipy import interpolate, integrate
@@ -45,12 +44,9 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir):
     delta - density at which mass function is calculated. i.e. 
     MassDef * omega_m(z) of critical density. For Tinker mass function this is
     MassDef * mean density (mean density  = omega_m(z) * critical density)
-
     M is corresponds to delta definition 
-
     delta1 - standard mass definition. i.e. the mass corresponds 
     to either virial or 200 times critical density
-
     M1 is corresponds to delta1 definition 
     '''
     #print delta, delta1, M, M1,z
@@ -86,12 +82,9 @@ def dMdensitydMcritOR200(M1, z, omegam):
     '''
     delta - density at which mass function is calculated. i.e. 
     the mean density (omega_m(z) * critical density)
-
     M is corresponds to delta definition 
-
     delta1 - standard mass definition. i.e. the mass corresponds 
     to either virial or 200 times critical density
-
     M1 is corresponds to delta1 definition 
     '''
     g0 = 3.54e-2 + omegam**0.09
@@ -275,7 +268,7 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
 
 
 @jit(nopython=True)
-def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
+def HuKravtsov(z, M, rho, delta, deltao, cosmo_h, mvir):
     '''
     Eq. C10 in Hu&Kravstov to convert virial mass to any mass within some delta
     either both in critical density or mean density. In this function I use
@@ -289,8 +282,6 @@ def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
            z : redshift
            M which either Mvir or M200c solar mass
            rho : Rho used for Mvir or M200c
-           rhoo : DOESN'T involves in any calculation of the function 
-                  (output density)
            delta : fraction of rho corresponds to Mvir or M200c
            deltao : fraction of rho corresponds to output mass 
            mvir : should be 1 
@@ -329,23 +320,10 @@ if __name__=='__main__':
     BryanDelta = cosmo.BryanDelta() 
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
     rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
-    #for D in np.arange(1, 100, 10):
-    #    M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_bar, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
-    #    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
-    #sys.exit()
-
-    for z in np.linspace(0.01, 3, 10):
-        cosmo = CosmologyFunctions(z)
-        omega_b = cosmo._omega_b0
-        omega_m = cosmo._omega_m0
-        cosmo_h = cosmo._h
-        BryanDelta = cosmo.BryanDelta()
-        rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
-        rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
-        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_critical, 200, BryanDelta, cosmo_h, 0)
-        print('%.2f %.2e %.2f %.2e %.2f %.2e %.2f'%(BryanDelta, M, R, Mfrac, Rfrac, rho_s, Rs))
+    for D in np.arange(1, 100, 10):
+        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
+        print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
     sys.exit()
-
     print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
     print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
@@ -362,7 +340,7 @@ if __name__=='__main__':
     #those do
     for Mvir in np.logspace(9, 16, 50):
         #Mvir = 1e15
-        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_bar, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
+        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
         #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
         Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.*cosmo.omega_m())
         #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
