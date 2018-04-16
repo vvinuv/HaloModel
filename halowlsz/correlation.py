@@ -4,7 +4,7 @@ from numba import jit
 from scipy import special
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
-import config
+from configparser import ConfigParser
 from halomodel_cl_WL_tSZ import cl_WL_tSZ
 import pylab as pl
 
@@ -42,16 +42,28 @@ def correlation():
     return xi 
 
 
-def xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10, 
-              kk=False, yy=False, ky=True, 
-              zsfile='source_distribution.txt', odir='../data',
-              ofile='test.dat'):
+def xi_wl_tsz(config_file='wlsz.ini', cosmology='battaglia', 
+              rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10, 
+              kk=False, yy=False, ky=True, zsfile='source_distribution.txt',
+              P01=None, P02=None, P03=None,
+              xc1=None, xc2=None, xc3=None,
+              beta1=None, beta2=None, beta3=None, 
+              omega_m0=None, sigma_8=None, 
+              odir='../data', oclfile='cltest.dat', oxifile='xitest.dat'):
     '''
     Given the radius array in arcmin it will return the halomodel
     '''
+    config = ConfigParser()
+    config.read(config_file)
+    savefile = config.getboolean('halomodel', 'savefile')
+
     rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
     rradian = rarcmin / 60. * np.pi / 180.
-    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile)
+    ellarr, cl1h, cl2h, cl = cl_WL_tSZ(config_file, cosmology, fwhm_k, 
+                                       fwhm_y, kk, yy, ky, zsfile, 
+                                       P01, P02, P03, xc1, xc2, xc3,
+                                       beta1, beta2, beta3, omega_m0,
+                                       sigma_8, odir, oclfile)
     #pl.loglog(ellarr, cl, c='k', label='original')
     clspl = InterpolatedUnivariateSpline(ellarr, cl, k=3)
     cl1hspl = InterpolatedUnivariateSpline(ellarr, cl1h, k=3)
@@ -66,13 +78,8 @@ def xi_wl_tsz(rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10,
     xi1h = np.array([integrate_ell(ellarr, cl1h, r, dl) for r in rradian])
     xi2h = np.array([integrate_ell(ellarr, cl2h, r, dl) for r in rradian])
     xi = np.array([integrate_ell(ellarr, cl, r, dl) for r in rradian])
-    if config.savefile:
-        if ky:
-            np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
-        if kk:
-            np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
-        if yy:
-            np.savetxt(os.path.join(odir, ofile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
+    if savefile:
+        np.savetxt(os.path.join(odir, oxifile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
 
     return rarcmin, xi1h, xi2h, xi
 

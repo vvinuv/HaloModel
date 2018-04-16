@@ -6,7 +6,7 @@ from CosmologyFunctions import CosmologyFunctions
 from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac
 
 @jit(nopython=True)
-def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_m0, cosmo_h):
+def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_m0, cosmo_h, P01, P02, P03, xc1, xc2, xc3, beta1, beta2, beta3):
     '''
     Using Battaglia et al (2012). 
     Eq. 10. M200 in solar mass and R200 in Mpc
@@ -28,9 +28,9 @@ def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_
     P200 = 200. * rho_critical * omega_b0 * G * M200 / omega_m0 / 2. / R200 #Msun km^2 / Mpc^3 / s^2
 
     #Delta=200
-    P0 = 18.1 * ((M200 / 1e14)**0.154 * (1. + z)**-0.758)
-    xc = 0.497 * ((M200 / 1e14)**-0.00865 * (1. + z)**0.731)
-    beta = 4.35 * ((M200 / 1e14)**0.0393 * (1. + z)**0.415)
+    P0 = P01 * ((M200 / 1e14)**P02 * (1. + z)**P03)
+    xc = xc1 * ((M200 / 1e14)**xc2 * (1. + z)**xc3)
+    beta = beta1 * ((M200 / 1e14)**beta2 * (1. + z)**beta3)
     #Delta=500
     #P0 = 7.49 * ((M200 / 1e14)**0.226 * (1. + z)**-0.957)
     #xc = 0.710 * ((M200 / 1e14)**-0.0833 * (1. + z)**0.853)
@@ -202,7 +202,7 @@ def arnaud_profile_proj(x, Rs, M500, R500, zi, rho_crit, hz, xmax, omega_b0, ome
 if __name__=='__main__':
     from scipy.interpolate import interp1d
     z = 1. #0.0231
-    cosmo = CosmologyFunctions(z)
+    cosmo = CosmologyFunctions(z, 'wlsz.ini', 'battaglia')
     omega_b0 = cosmo._omega_b0
     omega_m0 = cosmo._omega_m0
     cosmo_h = cosmo._h

@@ -22,7 +22,7 @@ class MassFunctionSingle:
     Output:
         Mass function in 1/Mpc^3
     '''
-    def __init__(self, Mvir, redshift, bias, mf='ST99'):
+    def __init__(self, Mvir, redshift, config_file, cosmo_dict, bias, mf='ST99'):
         '''
         cosmological parameters 
         '''
@@ -39,7 +39,7 @@ class MassFunctionSingle:
         ''' 
         lnmarr = np.linspace(np.log(Mvir * 0.99), np.log(Mvir * 1.01), 10)
         marr = np.exp(lnmarr).astype(np.float64)
-        cosmo0 = CosmologyFunctions(0)
+        cosmo0 = CosmologyFunctions(0, config_file, cosmo_dict)
         #Byt giving m * h to sigm_m gives the sigma_m at z=0 
         sigma_m0 = np.array([cosmo0.sigma_m(m*cosmo0._h) for m in marr])
         rho_norm = cosmo0.rho_bar()
@@ -74,7 +74,7 @@ class MassFunctionSingle:
         mass_function -  Mpc^(-3)
      
         '''
-        cosmo = CosmologyFunctions(self.redshift)
+        cosmo = CosmologyFunctions(self.redshift, config_file, cosmo_dict)
         mass_array = np.logspace(np.log10(self.Mvir*0.9999), np.log10(self.Mvir*1.0001), 2)
         ln_mass_array = np.log(mass_array)
         ln_sigma_m_array = np.log(np.array([self.lnMassSigmaSpl(np.log(m)) for m in mass_array]))
@@ -134,14 +134,14 @@ def halo_bias_st(sqnu):
     return 1+blag #b_eul
 
 
-def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
+def bias_mass_func_st(redshift, config_file, cosmo_dict, lMvir, uMvir, mspace, bias=True, marr=None):
     '''
     Sheth & Torman 1999 & Eq. 56-50 of CS02 in p21
     Output:
          MF = dn/dlnMvir (1/Mpc^3)
          mass = Solar mass
     '''
-    cosmo0 = CosmologyFunctions(0)
+    cosmo0 = CosmologyFunctions(0, config_file, cosmo_dict)
     cosmo_h = cosmo0._h
 
     if marr is not None:
@@ -159,7 +159,7 @@ def bias_mass_func_st(redshift, lMvir, uMvir, mspace, bias=True, marr=None):
     #print marr, sigma_m0
     lnMassSigma0Spl = InterpolatedUnivariateSpline(lnmarr, sigma_m0, k=3)
 
-    cosmo = CosmologyFunctions(redshift)
+    cosmo = CosmologyFunctions(redshift, config_file, cosmo_dict)
 
     mf,nuarr,fnuarr = [],[],[]
     for m in marr:
@@ -210,7 +210,7 @@ def halo_bias_tinker(Delta, nu):
            B* nu**beta + C* nu**ceta
     return bias
  
-def bias_mass_func_tinker(redshift, lM, uM, mspace, bias=True, Delta=200, mtune=False, marr=None, reduced=False):
+def bias_mass_func_tinker(redshift, config_file, cosmo_dict, lM, uM, mspace, bias=True, Delta=200, mtune=False, marr=None, reduced=False):
     '''
     Wrote on Jan 26, 2017
     Mass function of mass determined from mean density
@@ -248,7 +248,7 @@ def bias_mass_func_tinker(redshift, lM, uM, mspace, bias=True, Delta=200, mtune=
     cTinker = (1.193958e+00, 1.270316e+00, 1.335191e+00, 1.446266e+00, 1.581345e+00, 1.795050e+00, 1.965613e+00, 2.237466e+00, 2.439729e+00)
     cspl = interp1d(DeltaTinker, cTinker, kind='cubic') #fill_value='extrapolate')
 
-    cosmo0 = CosmologyFunctions(0)
+    cosmo0 = CosmologyFunctions(0, config_file, cosmo_dict)
     cosmo_h = cosmo0._h
 
     if mtune:
@@ -274,9 +274,9 @@ def bias_mass_func_tinker(redshift, lM, uM, mspace, bias=True, Delta=200, mtune=
     rho_norm0 = cosmo0.rho_bar()
     #print marr, sigma_m0
     if redshift >= 3:
-        cosmo = CosmologyFunctions(3.)
+        cosmo = CosmologyFunctions(3., config_file, cosmo_dict)
     else:
-        cosmo = CosmologyFunctions(redshift)
+        cosmo = CosmologyFunctions(redshift, config_file, cosmo_dict)
 
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0*cosmo._growth, k=3)
     if 0:#Delta == 200:
@@ -330,7 +330,7 @@ def bias_mass_func_tinker(redshift, lM, uM, mspace, bias=True, Delta=200, mtune=
     else:
         return marr, mf, sarr, fsarr
 
-def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200, mtune=False, marr=None):
+def bias_mass_func_bocquet(redshift, config_file, cosmo_dict, lM200, uM200, mspace, bias=True, Delta=200, mtune=False, marr=None):
     '''
     Wrote on Feb 20, 2017
     Mass function of mass determined from critical density
@@ -350,7 +350,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
 
     '''
 
-    cosmo0 = CosmologyFunctions(0)
+    cosmo0 = CosmologyFunctions(0, config_file, cosmo_dict)
     cosmo_h = cosmo0._h
 
     g0 = 3.54e-2 + cosmo0._omega_m0**0.09
@@ -386,7 +386,7 @@ def bias_mass_func_bocquet(redshift, lM200, uM200, mspace, bias=True, Delta=200,
     rho_norm0 = cosmo0.rho_bar()
     #print marr, sigma_m0
 
-    cosmo = CosmologyFunctions(redshift)
+    cosmo = CosmologyFunctions(redshift, config_file, cosmo_dict)
     lnMassSigmaSpl = InterpolatedUnivariateSpline(lnmarr, sigma_m0*cosmo._growth, k=3)
     if Delta == 200:
         A = 0.222 * (1. + cosmo.redshift())**0.269

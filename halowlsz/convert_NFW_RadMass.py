@@ -1,6 +1,5 @@
 import os
 import sys
-import config
 import numpy as np
 from numpy import vectorize
 from scipy import interpolate, integrate
@@ -320,7 +319,7 @@ def HuKravtsov(z, M, rho, delta, deltao, cosmo_h, mvir):
 if __name__=='__main__':
     z=0.07
     Mvir = 1e15
-    cosmo = CosmologyFunctions(z)
+    cosmo = CosmologyFunctions(z, 'wlsz.ini', 'battaglia')
     omega_b = cosmo._omega_b0
     omega_m = cosmo._omega_m0
     cosmo_h = cosmo._h

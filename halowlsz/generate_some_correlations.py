@@ -8,8 +8,8 @@ if 1:
         if zsfile.startswith("source_distribution_new_"):
             zstr = zsfile[-8:-4]
             print zstr 
-            if not zstr=='z0p4':
-                ofile = 'xi_ky_%s_5rvir.dat'%zstr
+            if not zstr=='1z0p4':
+                ofile = 'xi_ky_%s_2rvir.dat'%zstr
                 #ofile = 'xi_ky_BH_%s.dat'%zstr
                 rarcmin, xi1h, xi2h, xi = correlation.xi_wl_tsz(rmin=1e-2, rmax=150, 
                                                             rbin=100, fwhm_k=1., 

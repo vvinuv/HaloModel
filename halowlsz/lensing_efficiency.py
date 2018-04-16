@@ -72,7 +72,7 @@ def waerbeke():
     Weight function should use the angular coordinate which matches with the 
     plot from Waerbeke et al, 2014
     '''
-    cosmo = CosmologyFunctions(0.)
+    cosmo = CosmologyFunctions(0., 'wlsz.ini', 'battaglia')
     omega_m0 = cosmo._omega_m0
     cosmo_h = cosmo._h
     light_speed = 3e5 #km/s
@@ -87,7 +87,7 @@ def waerbeke():
     Ns /= Nsum
 
     zlarr = zsarr.copy()
-    chilarr = np.array([CosmologyFunctions(zi).comoving_distance() for zi in zlarr]) / 0.7
+    chilarr = np.array([CosmologyFunctions(zi, 'wlsz.ini', 'battaglia').comoving_distance() for zi in zlarr]) / 0.7
 
     chisarr = chilarr.copy()
     
@@ -112,7 +112,7 @@ def des():
     from scipy.interpolate import interp1d
 
     mytools.matrc_small()
-    cosmo = CosmologyFunctions(0.)
+    cosmo = CosmologyFunctions(0., 'wlsz.ini', 'battaglia')
     omega_m0 = cosmo._omega_m0
     cosmo_h = cosmo._h
     light_speed = 3e5 #km/s
@@ -120,7 +120,7 @@ def des():
     colors = pl.cm.jet(np.linspace(0, 1, 10)) 
     mz = np.linspace(0.001, 1.5, 100)
     dz = mz[1] - mz[0]
-    mchi = np.array([CosmologyFunctions(zi).comoving_distance() for zi in mz]) / cosmo_h
+    mchi = np.array([CosmologyFunctions(zi, 'wlsz.ini', 'battaglia').comoving_distance() for zi in mz]) / cosmo_h
     splzchi = interp1d(mz, mchi)
     ax = pl.subplot(111) 
     zdict = {0:'z0p1', 1:'z0p2', 2:'z0p3', 3:'z0p4', 4:'z0p5', 5:'z0p6', 6:'z0p7', 7:'z0p8', 8:'z0p9', 9:'z1p0'}
