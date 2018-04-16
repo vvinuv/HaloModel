@@ -44,12 +44,9 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir):
     delta - density at which mass function is calculated. i.e. 
     MassDef * omega_m(z) of critical density. For Tinker mass function this is
     MassDef * mean density (mean density  = omega_m(z) * critical density)
-
     M is corresponds to delta definition 
-
     delta1 - standard mass definition. i.e. the mass corresponds 
     to either virial or 200 times critical density
-
     M1 is corresponds to delta1 definition 
     '''
     #print delta, delta1, M, M1,z
@@ -85,12 +82,9 @@ def dMdensitydMcritOR200(M1, z, omegam):
     '''
     delta - density at which mass function is calculated. i.e. 
     the mean density (omega_m(z) * critical density)
-
     M is corresponds to delta definition 
-
     delta1 - standard mass definition. i.e. the mass corresponds 
     to either virial or 200 times critical density
-
     M1 is corresponds to delta1 definition 
     '''
     g0 = 3.54e-2 + omegam**0.09
