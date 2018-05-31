@@ -208,7 +208,8 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
     cosmo0 = CosmologyFunctions(0, config_file, cosmo_dict)
     cosmo_h = cosmo0._h
 
-    savefile = config.getboolean('halomodel', 'savefile')
+    save_clfile = config.getboolean('halomodel', 'save_clfile')
+    print_cl = config.getboolean('halomodel', 'print_cl')
     light_speed = config.getfloat('halomodel', 'light_speed') #km/s
     mpctocm = config.getfloat('halomodel', 'mpctocm')
     kB_kev_K = config.getfloat('halomodel', 'kB_kev_K')
@@ -290,7 +291,7 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
     zarr = np.exp(lnzarr) - 1.0
     dlnz = np.log((1.+zmax)/(1.+zmin)) / zspace
 
-    print 'dlnk, dlnm dlnz', dlnk, dlnm, dlnz
+    print('dlnk, dlnm dlnz', dlnk, dlnm, dlnz)
     #No little h
     #Need to give mass * h and get the sigma without little h
     #The following lines are used only used for ST MF and ST bias
@@ -445,14 +446,15 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
-        print ell, cl1h, cl2h, cl
+        if print_cl:
+            print('l %.2 Cl_1h %.2e Cl_2h %.2e Cl %.2e'%(ell, cl1h, cl2h, cl))
 
     convolve = np.exp(-1 * sigmasq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
     cl = np.array(cl_arr) * convolve
     cl1h = np.array(cl1h_arr) * convolve
     cl2h = np.array(cl2h_arr) * convolve
     
-    if savefile:
+    if save_clfile:
         np.savetxt(os.path.join(odir, ofile), np.transpose((ellarr, cl1h, cl2h, cl)), fmt='%.2f %.3e %.3e %.3e', header='l Cl1h Cl2h Cl')
 
     return ellarr, cl1h, cl2h, cl

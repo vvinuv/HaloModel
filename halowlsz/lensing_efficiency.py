@@ -1,6 +1,5 @@
 import numpy as np
 from numba import jit
-import mytools
 
 @jit(nopython=True)
 def Wk_one(zl, chil, zsarr, chisarr, Ns, constk):
@@ -110,6 +109,7 @@ def des():
     import pylab as pl
     from CosmologyFunctions import CosmologyFunctions
     from scipy.interpolate import interp1d
+    import mytools
 
     mytools.matrc_small()
     cosmo = CosmologyFunctions(0., 'wlsz.ini', 'battaglia')
@@ -131,7 +131,7 @@ def des():
         chis = splzchi(zs)
         Wk = np.array([Wkcom(zl, chil, zs, chis, N, constk) for zl, chil in zip(mz, mchi)])
         Wksum = Wk.sum() * dz
-        print Wksum
+        print(Wksum)
         Wk /= Wksum
 
         pl.plot(zs, N, label=r'$z > %.1f$'%float(zdict[i][1:].replace('p', '.')), ls='--', c=colors[i])

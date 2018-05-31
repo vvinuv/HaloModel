@@ -43,21 +43,21 @@ def correlation():
 
 
 def xi_wl_tsz(config_file='wlsz.ini', cosmology='battaglia', 
-              rmin=1e-2, rmax=150, rbin=100, fwhm_k=1, fwhm_y=10, 
+              rmin=1e-2, rmax=150, rbin=100, rarcmin=None, fwhm_k=1, fwhm_y=10, 
               kk=False, yy=False, ky=True, zsfile='source_distribution.txt',
               P01=None, P02=None, P03=None,
               xc1=None, xc2=None, xc3=None,
               beta1=None, beta2=None, beta3=None, 
               omega_m0=None, sigma_8=None, 
-              odir='../data', oclfile='cltest.dat', oxifile='xitest.dat'):
+              odir='./', oclfile='cltest.dat', oxifile='xitest.dat'):
     '''
     Given the radius array in arcmin it will return the halomodel
     '''
     config = ConfigParser()
     config.read(config_file)
-    savefile = config.getboolean('halomodel', 'savefile')
 
-    rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
+    if rarcmin is None:
+        rarcmin = np.linspace(rmin, rmax, rbin) #arcmin
     rradian = rarcmin / 60. * np.pi / 180.
     ellarr, cl1h, cl2h, cl = cl_WL_tSZ(config_file, cosmology, fwhm_k, 
                                        fwhm_y, kk, yy, ky, zsfile, 
@@ -78,8 +78,7 @@ def xi_wl_tsz(config_file='wlsz.ini', cosmology='battaglia',
     xi1h = np.array([integrate_ell(ellarr, cl1h, r, dl) for r in rradian])
     xi2h = np.array([integrate_ell(ellarr, cl2h, r, dl) for r in rradian])
     xi = np.array([integrate_ell(ellarr, cl, r, dl) for r in rradian])
-    if savefile:
-        np.savetxt(os.path.join(odir, oxifile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
+    np.savetxt(os.path.join(odir, oxifile), np.transpose((rarcmin, xi1h, xi2h, xi)), fmt='%.2f %.3e %.3e %.3e', header='theta_arcmin xi1h xi2h xi')
 
     return rarcmin, xi1h, xi2h, xi
 

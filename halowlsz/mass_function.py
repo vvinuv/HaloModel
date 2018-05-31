@@ -47,17 +47,17 @@ class MassFunctionSingle:
         return rho_norm, lnMassSigmaSpl
 
     def halo_bias_st(self, nu):
-	'''
-	Eq. 8 in Sheth et al 2001
-	'''
-	common = 1./np.sqrt(0.707)/1.686
-	fterm = np.sqrt(0.707) * 0.707 * nu #First term
-	sterm = np.sqrt(0.707) * 0.5 * (0.707 * nu)**(1.-0.6) #second term
-	ttermn = (0.707 * nu)**0.6 #numerator of third term
-	ttermd = (0.707 * nu)**0.6 + 0.5 * (1.-0.6) * (1.-0.6/2.) #demoninator of third term
-	tterm = ttermn / ttermd #third term
-	blag = common * (fterm + sterm - tterm) #b_lag
-	return 1+blag #b_eul
+        '''
+        Eq. 8 in Sheth et al 2001
+        '''
+        common = 1./np.sqrt(0.707)/1.686
+        fterm = np.sqrt(0.707) * 0.707 * nu #First term
+        sterm = np.sqrt(0.707) * 0.5 * (0.707 * nu)**(1.-0.6) #second term
+        ttermn = (0.707 * nu)**0.6 #numerator of third term
+        ttermd = (0.707 * nu)**0.6 + 0.5 * (1.-0.6) * (1.-0.6/2.) #demoninator of third term
+        tterm = ttermn / ttermd #third term
+        blag = common * (fterm + sterm - tterm) #b_lag
+        return 1+blag #b_eul
 
     def massfunction(self):
         '''
@@ -111,9 +111,9 @@ class MassFunctionSingle:
         #print Mvir, rho_norm * cosmo._h * cosmo._h, cosmo.delta_c()/cosmo._growth, lnMassSigmaSpl(np.log(Mvir)),ln_sigma_m_ln_mass_derivative 
         mass_function = nuf * self.rho_norm * cosmo._h * cosmo._h * ln_sigma_m_ln_mass_derivative / self.Mvir
         if self.bias == 0:
-	    return mass_function
+            return mass_function
         elif self.bias == 1:
-	    return self.halo_bias_st(nu)
+            return self.halo_bias_st(nu)
         elif self.bias == 2: 
             return mass_function * self.halo_bias_st(nu)
         else:
@@ -457,9 +457,9 @@ if __name__=='__main__':
     '''
     M200 = marr.copy()
     marr, mf, sarr, fsarr = bias_mass_func_tinker(redshift, M200.min(), M200.max(), mspace, marr=marr, reduced=0) #np.array([1e11, 1e12, 1e13, 1e14, 1e15]))
-    print marr.min(), marr.max()
+    print(marr.min(), marr.max())
     np.savetxt('../data/vmf.dat', np.transpose((marr, mf/marr)))
-    print marr[0], mf[0] 
+    print(marr[0], mf[0]) 
     #I think my code give M/h and the code from Jeremy Tinker and HMF is also agrees with my code. However, it should be checked, i.e. not very sure whether the mass in this function bias_mass_func_tinker() gives M*h or M 
     #pl.loglog(marr1, mf, label='Tinker-Vinu1')
     #pl.loglog(m2001, mf, label='Tinker-Vinu2001', lw=3)

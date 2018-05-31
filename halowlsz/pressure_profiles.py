@@ -121,7 +121,7 @@ def bprofile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, 
         Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
     if mtype == 'frac':
         Mvir, Rvir, M200, R200, rho_s, Rs = MRfracToMvir(Mvir, z, BryanDelta, rho_critical, cosmo_h)
-    print M200, R200
+    print(M200, R200)
     #It seems R200 is in the physical distance, i.e. proper distance
     #Need to multiplied by (1+z) to get the comoving unit as I am giving r in
     #comoving unit.
@@ -153,7 +153,7 @@ def bprofile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, 
 #@jit(nopython=True)
 def arnaud_profile(x, y, Mvir, zi, BD, rho_crit, hz, omega_b0, omega_m0, cosmo_h):
     Mvir, Rvir, M500, R500, rho_s, Rs = MvirToMRfrac(Mvir, zi, BD, rho_crit, cosmo_h, frac=500.0)
-    print M500, R500
+    print(M500, R500)
     r = x * R500
     x = np.sqrt(x**2. + y**2.)
     #Eq. 11, 12, 13
@@ -214,7 +214,7 @@ if __name__=='__main__':
 
     Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
 
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, M200, R200, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, M200, R200, rho_s, Rs))
     M200 = 8.915e14
     R200 = 1.392
     Rs = 0.53

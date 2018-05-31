@@ -328,27 +328,27 @@ if __name__=='__main__':
     rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
     for D in np.arange(1, 100, 10):
         M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
-        print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        print('%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs))
     sys.exit()
-    print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
-    print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
+    print('rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar))
+    print('Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs')
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs))
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs))
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracToMfrac(Mfrac, z, BryanDelta, 400, rho_critical, cosmo_h, frac=200.0)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs))
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, rho_critical, rho_bar, cosmo_h, frac=200.0)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs))
     #Checking where HuKravtsov() & MvirToMRfrac() give the same answer and 
     #those do
     for Mvir in np.logspace(9, 16, 50):
         #Mvir = 1e15
         M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
-        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        #print('%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
         Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.*cosmo.omega_m())
-        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+        #print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
 
-        print dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h)
+        print(dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h))

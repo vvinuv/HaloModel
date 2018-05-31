@@ -606,7 +606,7 @@ class CosmologyFunctions:
         """
         sqrt_nu = self.delta_c()/ self._growth /self.sigma_m(mass)
         if mass > 1e55:
-            print mass, self.delta_c(), self.delta_c()/self._growth, self._growth, sqrt_nu*sqrt_nu, self.sigma_m(mass)
+            print(mass, self.delta_c(), self.delta_c()/self._growth, self._growth, sqrt_nu*sqrt_nu, self.sigma_m(mass))
 
         return sqrt_nu*sqrt_nu
 
@@ -614,9 +614,9 @@ class CosmologyFunctions:
 if __name__=='__main__':
     redshift = 0.0
     cosmo = CosmologyFunctions(redshift)
-    print '%.2e'%cosmo.rho_bar()
-    print cosmo.omega_m()
-    print '%.3e'%((cosmo.E(redshift)/cosmo._h) * cosmo.comoving_distance()**2/cosmo._h**2)
+    print('%.2e'%cosmo.rho_bar())
+    print(cosmo.omega_m())
+    print('%.3e'%((cosmo.E(redshift)/cosmo._h) * cosmo.comoving_distance()**2/cosmo._h**2))
     sys.exit()
     kmin = 1e-4
     kmax = 1e4
