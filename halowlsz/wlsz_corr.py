@@ -5,7 +5,7 @@ from scipy import special
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline, InterpolatedUnivariateSpline
 from configparser import ConfigParser
-from halomodel_cl_WL_tSZ import cl_WL_tSZ
+from halowlsz.halomodel_cl_WL_tSZ import cl_WL_tSZ
 import pylab as pl
 
 @jit(nopython=True)

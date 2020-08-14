@@ -1,7 +1,7 @@
 import os
 import sys
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 # Check if pyhalowlsz could run on the given system
@@ -22,10 +22,6 @@ with open(os.path.join(current_dir, 'requirements.txt')) as f:
 with open("__version__") as f:
     version = f.readlines()[-1].split()[-1].strip("\"'")
 
-with open('README.md') as f:
-    long_description = f.read()
-
-
 setup(name='halowlsz',
       version=version,
       author='Vinu Vikraman, Samuel Flender',
@@ -36,7 +32,7 @@ setup(name='halowlsz',
       include_package_data=True,
       url='https://github.com/vvinuv/halowlsz',
       license='MIT',
-      packages=['halowlsz'],
+      #packages=['halowlsz'],
 #      scripts=['halowlsz/wlsz_corr.py', 'halowlsz/halomodel_cl_WL_tSZ.py', 'halowlsz/mass_function.py', 'halowlsz/convert_NFW_RadMass.py', 'halowlsz/CosmologyFunctions.py', 'halowlsz/lensing_efficiency.py', 'halowlsz/pressure_profiles.py'],
       platforms=['Linux'],
       classifiers=[

@@ -10,11 +10,11 @@ import pylab as pl
 from numba import jit
 import timeit
 #import fastcorr
-from CosmologyFunctions import CosmologyFunctions
-from mass_function import halo_bias_st, halo_bias_tinker, bias_mass_func_st, bias_mass_func_tinker, bias_mass_func_bocquet
-from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
-from pressure_profiles import battaglia_profile_2d
-from lensing_efficiency import Wkcom
+from halowlsz.CosmologyFunctions import CosmologyFunctions
+from halowlsz.mass_function import halo_bias_st, halo_bias_tinker, bias_mass_func_st, bias_mass_func_tinker, bias_mass_func_bocquet
+from halowlsz.convert_NFW_RadMass import MfracToMvir, MvirToMRfrac, MfracToMfrac, MvirTomMRfrac, MfracTomMFrac, dlnMdensitydlnMcritOR200, HuKravtsov
+from halowlsz.pressure_profiles import battaglia_profile_2d
+from halowlsz.lensing_efficiency import Wkcom
 
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
@@ -291,12 +291,9 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
     zarr = np.exp(lnzarr) - 1.0
     dlnz = np.log((1.+zmax)/(1.+zmin)) / zspace
 
-<<<<<<< Updated upstream
     print('dlnk, dlnm dlnz', dlnk, dlnm, dlnz)
-=======
     if doPrintCl:
         print('dlnk, dlnm dlnz', dlnk, dlnm, dlnz)
->>>>>>> Stashed changes
     #No little h
     #Need to give mass * h and get the sigma without little h
     #The following lines are used only used for ST MF and ST bias
@@ -336,29 +333,23 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
         if config.get('halomodel', 'MF') == 'Tinker':
             if config.get('halomodel', 'MassToIntegrate') == 'virial':
                 if DD > 200:
-<<<<<<< Updated upstream
                     mFrac = marr * cosmo_h 
-=======
                     print(1)
                     mFrac = marr * h0 
->>>>>>> Stashed changes
                     #print bn, cosmo.omega_m(), bn/cosmo.omega_m()
                     mf.append(bias_mass_func_tinker(zi, config_file, cosmo_dict, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=DD, marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append(np.ones_like(marr))
                 else:
-<<<<<<< Updated upstream
                     mFrac = np.array([HuKravtsov(zi, mv, rcrit, bn, config.getfloat('halomodel', 'MassDef') * cosmo.omega_m(), cosmo_h, 1)[2] for mv in marr]) * cosmo_h 
                     mf.append(bias_mass_func_tinker(zi, config_file, cosmo_dict,  mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.getfloat('halomodel', 'MassDef'), marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append([dlnMdensitydlnMcritOR200(config.getfloat('halomodel', 'MassDef') * cosmo.omega_m(), bn, mFm/cosmo_h, mv, zi, cosmo_h, 1) for mv,mFm in zip(marr, mFrac)]) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
-=======
                     print(2)
                     mFrac = np.array([HuKravtsov(zi, mv, rcrit, bn, float(config['massfunc']['MassDef'])/cosmo.omega_m(), h0, 1)[2] for mv in marr]) * h0 
                     mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=float(config['massfunc']['MassDef']), marr=mFrac, reduced=False)[1])
                     marr2.append(marr)
                     dlnmdlnm.append([dlnMdensitydlnMcritOR200(float(config['massfunc']['MassDef']) / cosmo.omega_m(), bn, mFm/h0, mv, zi, h0, 1) for mv,mFm in zip(marr, mFrac)]) #dlnmFrac/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnmFrac/dlnMv only 
->>>>>>> Stashed changes
                 #print dlnmdlnm
                 #print a
                 input_mvir = 1
@@ -374,19 +365,16 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
                     marr2.append(marr)
                     dlnmdlnm.append(np.ones_like(marr))
                 else:
-<<<<<<< Updated upstream
                     mFrac = np.array([HuKravtsov(zi, m2c, rcrit, 200, config.getfloat('halomodel', 'MassDef') * cosmo.omega_m(), cosmo_h, 0)[2] for m2c in marr]) * cosmo_h
                     mf.append(bias_mass_func_tinker(zi, config_file, cosmo_dict, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=config.getfloat('halomodel', 'MassDef'), marr=mFrac)[1])
                     marr2.append(marr)
                     for m2,mFm in zip(marr, mFrac):
                         dlnmdlnm.append(dlnMdensitydlnMcritOR200(config.getfloat('halomodel', 'MassDef') * cosmo.omega_m(), 200., mFm/cosmo_h, m2, zi, cosmo_h, 0)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
-=======
                     mFrac = np.array([HuKravtsov(zi, m2c, rcrit, 200, float(config['massfunc']['MassDef'])/cosmo.omega_m(), h0, 0)[2] for m2c in marr]) * h0
                     mf.append(bias_mass_func_tinker(zi, mFrac.min(), mFrac.max(), mspace, bias=False, Delta=float(config['massfunc']['MassDef']), marr=mFrac)[1])
                     marr2.append(marr)
                     for m2,mFm in zip(marr, mFrac):
                         dlnmdlnm.append(dlnMdensitydlnMcritOR200(float(config['massfunc']['MassDef']) / cosmo.omega_m(), 200., mFm/h0, m2, zi, h0, 0)) #dlnM200m/dlnMv. In the bias_mass_func_tinker() I have computed dn/dlnM where M is in the unit of Msol. I have therefore include h in that mass function. Therefore, I just need to multiply dlnM200m/dlnMv only
->>>>>>> Stashed changes
                 input_mvir = 0
             elif config.get('halomodel', 'MassToIntegrate') == 'm200m':
                 #raise ValueError('Use MassToIntegrate=virial/m200c. m200m is not working')
@@ -472,13 +460,10 @@ def cl_WL_tSZ(config_file, cosmology, fwhm_k, fwhm_y, kk, yy, ky, zsfile,
         cl_arr.append(cl)
         cl1h_arr.append(cl1h)
         cl2h_arr.append(cl2h)
-<<<<<<< Updated upstream
         if print_cl:
             print('l %.2 Cl_1h %.2e Cl_2h %.2e Cl %.2e'%(ell, cl1h, cl2h, cl))
-=======
         if doPrintCl:
             print(ell, cl1h, cl2h, cl)
->>>>>>> Stashed changes
 
     convolve = np.exp(-1 * sigmasq * ellarr * ellarr)# i.e. the output is Cl by convolving by exp(-sigma^2 l^2)
     cl = np.array(cl_arr) * convolve
@@ -497,12 +482,10 @@ if __name__=='__main__':
     kk = 0
     yy = 1
     ky = 0
-<<<<<<< Updated upstream
     zsfile = 'source_distribution_zs_1.txt'
     #zsfile = 'CFHTLens_zdist.dat'
 
     ellarr, cl1h, cl2h, cl = cl_WL_tSZ(fwhm_k, fwhm_y, kk, yy, ky, zsfile, odir='../data')
-=======
     Omega_m0 = 0.25
     sigma_8 = 0.8
     paramsfile = 'wlxtsz.ini'
@@ -510,7 +493,6 @@ if __name__=='__main__':
     #zsfile = 'CFHTLens_zdist.dat'
 
     ellarr, cl1h, cl2h, cl = cl_WL_tSZ(paramsfile, fwhm_k, fwhm_y, kk, yy, ky, zsfile, omega_m0=Omega_m0, sigma_8=sigma_8, P01=18.1, P02=0.154, P03=-0.758, xc1=0.497, xc2=-0.00865, xc3=0.731, beta1=4.35, beta2=0.0393, beta3=0.415, odir='../data', default_pp=False)
->>>>>>> Stashed changes
 
     if yy:
         bl, bcl = np.genfromtxt('../data/battaglia_analytical.csv', delimiter=',', unpack=True)

@@ -2,8 +2,8 @@ import os, sys
 import numpy as np
 from numba import jit
 import pylab as pl
-from CosmologyFunctions import CosmologyFunctions
-from convert_NFW_RadMass import MfracToMvir, MvirToMRfrac
+from halowlsz.CosmologyFunctions import CosmologyFunctions
+from halowlsz.convert_NFW_RadMass import MfracToMvir, MvirToMRfrac
 
 @jit(nopython=True)
 def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_m0, cosmo_h, P01, P02, P03, xc1, xc2, xc3, beta1, beta2, beta3):

@@ -3,9 +3,9 @@ import sys
 import numpy as np
 import pylab as pl
 from scipy.interpolate import interp1d
-from CosmologyFunctions import CosmologyFunctions
+from halowlsz.CosmologyFunctions import CosmologyFunctions
 from scipy.interpolate import InterpolatedUnivariateSpline
-from convert_NFW_RadMass import MvirToMRfrac, MfracToMvir
+from halowlsz.convert_NFW_RadMass import MvirToMRfrac, MfracToMvir
 import warnings
  
 class MassFunctionSingle:

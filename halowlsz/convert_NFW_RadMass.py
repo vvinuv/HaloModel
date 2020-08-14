@@ -12,7 +12,7 @@ from numba import jit
 import numba as nb
 import timeit
 #import fastcorr
-from CosmologyFunctions import CosmologyFunctions
+from halowlsz.CosmologyFunctions import CosmologyFunctions
  
 __author__ = ("Vinu Vikraman <vvinuv@gmail.com>")
 
