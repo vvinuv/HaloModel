@@ -8,5 +8,6 @@ setup(name='pyhalowlsz',
       author_email='vvinuv@gmail.com',
       license='MIT',
       packages=['halowlsz'],
+#      scripts=['halowlsz/wlsz_corr.py', 'halowlsz/halomodel_cl_WL_tSZ.py', 'halowlsz/mass_function.py', 'halowlsz/convert_NFW_RadMass.py', 'halowlsz/CosmologyFunctions.py', 'halowlsz/lensing_efficiency.py', 'halowlsz/pressure_profiles.py'],
       zip_safe=False)
 

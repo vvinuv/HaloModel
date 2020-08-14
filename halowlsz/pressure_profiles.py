@@ -31,11 +31,6 @@ def battaglia_profile_2d(x, y, Rs, M200, R200, z, rho_critical, omega_b0, omega_
     P0 = P01 * ((M200 / 1e14)**P02 * (1. + z)**P03)
     xc = xc1 * ((M200 / 1e14)**xc2 * (1. + z)**xc3)
     beta = beta1 * ((M200 / 1e14)**beta2 * (1. + z)**beta3)
-
-    #P0 = 18.1 * ((M200 / 1e14)**0.154 * (1. + z)**-0.758)
-    #xc = 0.497 * ((M200 / 1e14)**-0.00865 * (1. + z)**0.731)
-    #beta = 4.35 * ((M200 / 1e14)**0.0393 * (1. + z)**0.415)
- 
     #Delta=500
     #P0 = 7.49 * ((M200 / 1e14)**0.226 * (1. + z)**-0.957)
     #xc = 0.710 * ((M200 / 1e14)**-0.0833 * (1. + z)**0.853)
@@ -126,7 +121,7 @@ def bprofile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, 
         Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
     if mtype == 'frac':
         Mvir, Rvir, M200, R200, rho_s, Rs = MRfracToMvir(Mvir, z, BryanDelta, rho_critical, cosmo_h)
-    print M200, R200
+    print(M200, R200)
     #It seems R200 is in the physical distance, i.e. proper distance
     #Need to multiplied by (1+z) to get the comoving unit as I am giving r in
     #comoving unit.
@@ -158,7 +153,7 @@ def bprofile(r, Mvir, z, BryanDelta, rho_critical, omega_b0, omega_m0, cosmo_h, 
 #@jit(nopython=True)
 def arnaud_profile(x, y, Mvir, zi, BD, rho_crit, hz, omega_b0, omega_m0, cosmo_h):
     Mvir, Rvir, M500, R500, rho_s, Rs = MvirToMRfrac(Mvir, zi, BD, rho_crit, cosmo_h, frac=500.0)
-    print M500, R500
+    print(M500, R500)
     r = x * R500
     x = np.sqrt(x**2. + y**2.)
     #Eq. 11, 12, 13
@@ -207,7 +202,7 @@ def arnaud_profile_proj(x, Rs, M500, R500, zi, rho_crit, hz, xmax, omega_b0, ome
 if __name__=='__main__':
     from scipy.interpolate import interp1d
     z = 1. #0.0231
-    cosmo = CosmologyFunctions(z)
+    cosmo = CosmologyFunctions(z, 'wlsz.ini', 'battaglia')
     omega_b0 = cosmo._omega_b0
     omega_m0 = cosmo._omega_m0
     cosmo_h = cosmo._h
@@ -219,7 +214,7 @@ if __name__=='__main__':
 
     Mvir, Rvir, M200, R200, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
 
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, M200, R200, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, M200, R200, rho_s, Rs))
     M200 = 8.915e14
     R200 = 1.392
     Rs = 0.53

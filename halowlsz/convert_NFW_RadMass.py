@@ -44,9 +44,12 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir):
     delta - density at which mass function is calculated. i.e. 
     MassDef * omega_m(z) of critical density. For Tinker mass function this is
     MassDef * mean density (mean density  = omega_m(z) * critical density)
+
     M is corresponds to delta definition 
+
     delta1 - standard mass definition. i.e. the mass corresponds 
     to either virial or 200 times critical density
+
     M1 is corresponds to delta1 definition 
     '''
     #print delta, delta1, M, M1,z
@@ -82,9 +85,12 @@ def dMdensitydMcritOR200(M1, z, omegam):
     '''
     delta - density at which mass function is calculated. i.e. 
     the mean density (omega_m(z) * critical density)
+
     M is corresponds to delta definition 
+
     delta1 - standard mass definition. i.e. the mass corresponds 
     to either virial or 200 times critical density
+
     M1 is corresponds to delta1 definition 
     '''
     g0 = 3.54e-2 + omegam**0.09
@@ -313,7 +319,7 @@ def HuKravtsov(z, M, rho, delta, deltao, cosmo_h, mvir):
 if __name__=='__main__':
     z=0.07
     Mvir = 1e15
-    cosmo = CosmologyFunctions(z)
+    cosmo = CosmologyFunctions(z, 'wlsz.ini', 'battaglia')
     omega_b = cosmo._omega_b0
     omega_m = cosmo._omega_m0
     cosmo_h = cosmo._h
@@ -322,27 +328,27 @@ if __name__=='__main__':
     rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
     for D in np.arange(1, 100, 10):
         M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
-        print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        print('%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs))
     sys.exit()
-    print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
-    print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
+    print('rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar))
+    print('Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs')
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs))
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs))
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracToMfrac(Mfrac, z, BryanDelta, 400, rho_critical, cosmo_h, frac=200.0)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs))
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, rho_critical, rho_bar, cosmo_h, frac=200.0)
-    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
+    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs))
     #Checking where HuKravtsov() & MvirToMRfrac() give the same answer and 
     #those do
     for Mvir in np.logspace(9, 16, 50):
         #Mvir = 1e15
         M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
-        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        #print('%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
         Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.*cosmo.omega_m())
-        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+        #print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
 
-        print dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h)
+        print(dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h))
