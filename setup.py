@@ -37,12 +37,9 @@ setup(name='halowlsz',
       url='https://github.com/vvinuv/halowlsz',
       license='MIT',
       packages=['halowlsz'],
-<<<<<<< Updated upstream
 #      scripts=['halowlsz/wlsz_corr.py', 'halowlsz/halomodel_cl_WL_tSZ.py', 'halowlsz/mass_function.py', 'halowlsz/convert_NFW_RadMass.py', 'halowlsz/CosmologyFunctions.py', 'halowlsz/lensing_efficiency.py', 'halowlsz/pressure_profiles.py'],
-      zip_safe=False)
-=======
-          platforms=['Linux'],
-    classifiers=[
+      platforms=['Linux'],
+      classifiers=[
         "Environment :: Console",
         "Intended Audience :: Education",
         "Intended Audience :: Science/Research",
@@ -51,9 +48,8 @@ setup(name='halowlsz',
         "Operating System :: Linux/MacOS Independent",
         "Topic :: Scientific/Engineering :: Experimental Analysis",
         'Programming Language :: Python :: 3.6',
-    ],
-    zip_safe=False,
-    python_requires='>=3.6.*'
+      ],
+      zip_safe=False,
+      python_requires='>=3.6.*'
     )
->>>>>>> Stashed changes
 
