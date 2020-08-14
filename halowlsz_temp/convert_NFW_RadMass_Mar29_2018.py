@@ -1,5 +1,6 @@
 import os
 import sys
+import config
 import numpy as np
 from numpy import vectorize
 from scipy import interpolate, integrate
@@ -52,7 +53,7 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir):
 
     M1 is corresponds to delta1 definition 
     '''
-    #print(delta, delta1, M, M1,z
+    #print delta, delta1, M, M1,z
     a1 = 0.5116
     a2 = -0.4283
     a3 = -3.13e-3
@@ -70,13 +71,13 @@ def dlnMdensitydlnMcritOR200(delta, delta1, M, M1, z, cosmo_h, mvir):
     t31 = Delta / conc**2 * (1./(1. + conc) - 1./(1. + conc)**2.) - 3. * Delta * A / conc**3.
     t32 = 2. - p * a1 * f**(2*p-1.) * (a1 * f**(2*p) + 0.75**2.)**-1.5
     dMdM1 = Delta / (conc * x)**3 * (1. - 3 * B / x * (x + t31 * t32))
-    #print(dMdM1
-    #print(conc, f, p, x, t1, t2
+    #print dMdM1
+    #print conc, f, p, x, t1, t2
     ##t21 = 1./conc**3 * (2./(1. + conc) - conc / (1. + conc)**2.)
     ##t22 = (3. / conc**4) * (np.log(1. + conc) + conc / (1. + conc))
     ##t2 = t2 * (t21 - t22)
     ##t21 = -3 * f / conc + f / A * (1./(1.+conc) - 1./(1.+conc)**2.)
-    #print(t2, t21, t22
+    #print t2, t21, t22
     dlnMdlnM1 = (M1/M) * dMdM1
     return dlnMdlnM1
 
@@ -111,7 +112,7 @@ def MvirTomMRfrac(Mvir, z, BryanDelta, rho_critical, rho_bar, cosmo_h, frac=200.
        R200 in Mpc
     '''
     conc = concentration_duffy(Mvir, z, cosmo_h)
-    #print(Mvir, conc
+    #print Mvir, conc
     Rvir = (Mvir / ((4 * np.pi / 3.) * BryanDelta * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
     Rs = Rvir / conc
@@ -121,15 +122,15 @@ def MvirTomMRfrac(Mvir, z, BryanDelta, rho_critical, rho_bar, cosmo_h, frac=200.
     x0 = Rs * 1.1
     tol = Rvir * tolerance #tolerance
     x1 = 1 * Rvir #tol * 10**6
-    #print(1, x0, x1
+    #print 1, x0, x1
     while abs(x0 - x1) > tol:
-        #print(abs(x0 - x1), tol
+        #print abs(x0 - x1), tol
         x0 = x1 * 1.0
         x1 = x0 - f_Rfrac(x0, rho_s, Rs, rho_bar, frac) / df_Rfrac(x0, rho_s, Rs, rho_bar, frac)
-        #print(x0, x1
+        #print x0, x1
     Rfrac = x1
     Mfrac = (4. / 3.) * np.pi * Rfrac**3 * frac * rho_bar
-    #print(Mvir, Mfrac, Rvir, Rfrac
+    #print Mvir, Mfrac, Rvir, Rfrac
     return Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs
 
 @jit(nopython=True)
@@ -139,7 +140,7 @@ def MfracTomMFrac(Mfrac, z, frac2, rho_critical, rho_bar, cosmo_h, frac=200.0):
        Rvir in Mpc
     '''
     conc = concentration_duffy_200(Mfrac, z, cosmo_h)
-    #print(Mvir, conc
+    #print Mvir, conc
     Rfrac = (Mfrac / ((4 * np.pi / 3.) * frac * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     #rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
     rho_s = rho_critical * (frac / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
@@ -150,15 +151,15 @@ def MfracTomMFrac(Mfrac, z, frac2, rho_critical, rho_bar, cosmo_h, frac=200.0):
     x0 = Rfrac/2. 
     tol = Rfrac * tolerance #tolerance
     x1 = Rfrac *2. #tol * 10**6
-    #print(1, x0, x1, abs(x0 - x1), tol
+    #print 1, x0, x1, abs(x0 - x1), tol
     while abs(x0 - x1) > tol:
-        #print(abs(x0 - x1), tol
+        #print abs(x0 - x1), tol
         x0 = x1 * 1.0
         x1 = x0 - f_Rfrac(x0, rho_s, Rs, rho_bar, frac2) / df_Rfrac(x0, rho_s, Rs, rho_bar, frac2)
-        #print(x0, x1
+        #print x0, x1
     Rfrac2 = x1
     Mfrac2 = (4. / 3.) * np.pi * Rfrac2**3 * frac2 * rho_bar
-    #print(Mvir, Mfrac, Rvir, Rfrac
+    #print Mvir, Mfrac, Rvir, Rfrac
     return Mfrac, Rfrac, Mfrac2, Rfrac2, rho_s, Rs
 
 
@@ -168,7 +169,7 @@ def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.0):
        R200 in Mpc
     '''
     conc = concentration_duffy(Mvir, z, cosmo_h)
-    #print(Mvir, conc
+    #print Mvir, conc
     Rvir = (Mvir / ((4 * np.pi / 3.) * BryanDelta * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
     Rs = Rvir / conc
@@ -178,15 +179,15 @@ def MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.0):
     x0 = Rvir / 2.0
     tol = Rvir * tolerance #tolerance
     x1 = tol * 10**6
-    #print(1, x0, x1
+    #print 1, x0, x1
     while abs(x0 - x1) > tol:
-        #print(abs(x0 - x1), tol
+        #print abs(x0 - x1), tol
         x0 = x1 * 1.0
         x1 = x0 - f_Rfrac(x0, rho_s, Rs, rho_critical, frac) / df_Rfrac(x0, rho_s, Rs, rho_critical, frac)
-        #print(x0, x1
+        #print x0, x1
     Rfrac = x1
     Mfrac = (4. / 3.) * np.pi * Rfrac**3 * frac * rho_critical
-    #print(Mvir, Mfrac, Rvir, Rfrac
+    #print Mvir, Mfrac, Rvir, Rfrac
     return Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs
 
 @jit(nopython=True)
@@ -195,7 +196,7 @@ def MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0):
        Rvir in Mpc
     '''
     conc = concentration_duffy_200(Mfrac, z, cosmo_h)
-    #print(Mvir, conc
+    #print Mvir, conc
     Rfrac = (Mfrac / ((4 * np.pi / 3.) * frac * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     #rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
     rho_s = rho_critical * (frac / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
@@ -206,12 +207,12 @@ def MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0):
     x0 = Rfrac*2 
     tol = Rfrac * tolerance #tolerance
     x1 = Rfrac #tol * 10**6
-    #print(1, x0, x1, abs(x0 - x1), tol
+    #print 1, x0, x1, abs(x0 - x1), tol
     while abs(x0 - x1) > tol:
-        #print(abs(x0 - x1), tol
+        #print abs(x0 - x1), tol
         x0 = x1 * 1.0
         x1 = x0 - f_Rfrac(x0, rho_s, Rs, rho_critical, BryanDelta) / df_Rfrac(x0, rho_s, Rs, rho_critical, BryanDelta)
-        #print(x0, x1
+        #print x0, x1
     Rvir = x1
     Mvir = (4. / 3.) * np.pi * Rvir**3 * BryanDelta * rho_critical
 
@@ -219,7 +220,7 @@ def MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0):
     conc = concentration_duffy(Mvir, z, cosmo_h)
     Rs = Rvir / conc
     rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3 
-    #print(Mvir, Mfrac, Rvir, Rfrac
+    #print Mvir, Mfrac, Rvir, Rfrac
     return Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs
 
 #@jit(nopython=True)
@@ -229,7 +230,7 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
        Mf, Rf are in frac2 and Mfrac, Rfrac in frac
     '''
     conc = concentration_duffy_200(Mfrac, z, cosmo_h)
-    #print(Mvir, conc
+    #print Mvir, conc
     Rfrac = (Mfrac / ((4 * np.pi / 3.) * frac * rho_critical))**(1/3.) #(Msun / Msun Mpc^(-3))1/3. -> Mpc    
     #rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
     rho_s = rho_critical * (frac / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3  
@@ -240,12 +241,12 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
     x0 = Rfrac*2 
     tol = Rfrac * tolerance #tolerance
     x1 = Rfrac #tol * 10**6
-    #print(1, x0, x1, abs(x0 - x1), tol
+    #print 1, x0, x1, abs(x0 - x1), tol
     while abs(x0 - x1) > tol:
-        #print(abs(x0 - x1), tol
+        #print abs(x0 - x1), tol
         x0 = x1 * 1.0
         x1 = x0 - f_Rfrac(x0, rho_s, Rs, rho_critical, BryanDelta) / df_Rfrac(x0, rho_s, Rs, rho_critical, BryanDelta)
-        #print(x0, x1
+        #print x0, x1
     Rvir = x1
     Mvir = (4. / 3.) * np.pi * Rvir**3 * BryanDelta * rho_critical
 
@@ -256,12 +257,12 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
     x0 = Rfrac/2. 
     tol = Rfrac * tolerance #tolerance
     x1 = Rfrac #tol * 10**6
-    #print(1, x0, x1, abs(x0 - x1), tol
+    #print 1, x0, x1, abs(x0 - x1), tol
     while abs(x0 - x1) > tol:
-        #print(abs(x0 - x1), tol
+        #print abs(x0 - x1), tol
         x0 = x1 * 1.0
         x1 = x0 - f_Rfrac(x0, rho_s, Rs, rho_critical, frac2) / df_Rfrac(x0, rho_s, Rs, rho_critical, frac2)
-        #print(x0, x1
+        #print x0, x1
     Rf = x1
     Mf = (4. / 3.) * np.pi * Rf**3 * frac2 * rho_critical
 
@@ -269,12 +270,12 @@ def MfracToMfrac(Mfrac, z, BryanDelta, frac2, rho_critical, cosmo_h, frac=200.0)
     conc = concentration_duffy(Mvir, z, cosmo_h)
     Rs = Rvir / conc
     rho_s = rho_critical * (BryanDelta / 3.) * conc**3. / (np.log(1 + conc) - conc / (1 + conc)) #Msun / Mpc^3 
-    #print(Mvir, Mfrac, Rvir, Rfrac
+    #print Mvir, Mfrac, Rvir, Rfrac
     return Mf, Rf, Mfrac, Rfrac, rho_s, Rs
 
 
 @jit(nopython=True)
-def HuKravtsov(z, M, rho, delta, deltao, cosmo_h, mvir):
+def HuKravtsov(z, M, rho, rhoo, delta, deltao, cosmo_h, mvir):
     '''
     Eq. C10 in Hu&Kravstov to convert virial mass to any mass within some delta
     either both in critical density or mean density. In this function I use
@@ -288,6 +289,8 @@ def HuKravtsov(z, M, rho, delta, deltao, cosmo_h, mvir):
            z : redshift
            M which either Mvir or M200c solar mass
            rho : Rho used for Mvir or M200c
+           rhoo : DOESN'T involves in any calculation of the function 
+                  (output density)
            delta : fraction of rho corresponds to Mvir or M200c
            deltao : fraction of rho corresponds to output mass 
            mvir : should be 1 
@@ -319,36 +322,49 @@ def HuKravtsov(z, M, rho, delta, deltao, cosmo_h, mvir):
 if __name__=='__main__':
     z=0.07
     Mvir = 1e15
-    cosmo = CosmologyFunctions(z, 'wlsz.ini', 'battaglia')
+    cosmo = CosmologyFunctions(z)
     omega_b = cosmo._omega_b0
     omega_m = cosmo._omega_m0
     cosmo_h = cosmo._h
     BryanDelta = cosmo.BryanDelta() 
     rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
     rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
-    for D in np.arange(1, 100, 10):
-        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
-        print('%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs))
+    #for D in np.arange(1, 100, 10):
+    #    M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_bar, BryanDelta, D*cosmo.omega_m(), cosmo_h, True)
+    #    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+    #sys.exit()
+
+    for z in np.linspace(0.01, 3, 10):
+        cosmo = CosmologyFunctions(z)
+        omega_b = cosmo._omega_b0
+        omega_m = cosmo._omega_m0
+        cosmo_h = cosmo._h
+        BryanDelta = cosmo.BryanDelta()
+        rho_critical = cosmo.rho_crit() * cosmo._h * cosmo._h
+        rho_bar = cosmo.rho_bar() * cosmo._h * cosmo._h
+        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_critical, 200, BryanDelta, cosmo_h, 0)
+        print('%.2f %.2e %.2f %.2e %.2f %.2e %.2f'%(BryanDelta, M, R, Mfrac, Rfrac, rho_s, Rs))
     sys.exit()
-    print('rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar))
-    print('Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs')
+
+    print 'rho_critical = %.2e , rho_bar = %.2e'%(rho_critical, rho_bar)
+    print 'Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs'
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h)
-    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs))
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
     Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MfracToMvir(Mfrac, z, BryanDelta, rho_critical, cosmo_h, frac=200.0)
-    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs))
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracToMfrac(Mfrac, z, BryanDelta, 400, rho_critical, cosmo_h, frac=200.0)
-    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs))
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
 
     Mf, Rf, Mfrac, Rfrac, rho_s, Rs = MfracTomMFrac(Mfrac, z, 200, rho_critical, rho_bar, cosmo_h, frac=200.0)
-    print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs))
+    print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mf, Rf, Mfrac, Rfrac, rho_s, Rs)
     #Checking where HuKravtsov() & MvirToMRfrac() give the same answer and 
     #those do
     for Mvir in np.logspace(9, 16, 50):
         #Mvir = 1e15
-        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
-        #print('%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
+        M, R, Mfrac, Rfrac, rho_s, Rs = HuKravtsov(z, Mvir, rho_critical, rho_bar, BryanDelta, 200*cosmo.omega_m(), cosmo_h, True)
+        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(M, R, Mfrac, Rfrac, rho_s, Rs)
         Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs = MvirToMRfrac(Mvir, z, BryanDelta, rho_critical, cosmo_h, frac=200.*cosmo.omega_m())
-        #print('%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
+        #print '%.2e %.2f %.2e %.2f %.2e %.2f'%(Mvir, Rvir, Mfrac, Rfrac, rho_s, Rs)
 
-        print(dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h))
+        print dlnMdensitydlnMcritOR200(BryanDelta, 200*cosmo.omega_m(), Mvir, Mfrac, z, cosmo_h)

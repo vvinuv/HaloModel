@@ -1,6 +1,5 @@
 import os
 import sys
-from configparser import ConfigParser
 import numpy as np
 from numpy import vectorize
 from scipy import interpolate, integrate
@@ -30,52 +29,50 @@ class CosmologyFunctions:
     Most of the comments by Vinu and a few simple functions  
     Input:
         redshift: float redshift at which to compute all 
-                  cosmological values
-        cosmo_dict: dictionary of float values that define 
-                    the cosmology 
+                  cosmological values and cosmological values from Battaglia 
+                  simulation
             (see config.py)
     """
 
-    def __init__(self, redshift, config_file, cosmo_dict, with_bao=False, **kws):
+    def __init__(self, redshift, omega_b0=0.043, omega_m0=0.25, h0=0.72, sigma_8=0.8, n_scalar=0.96, with_bao=False, **kws):
         if redshift < 0.0:
             redshift = 0.0
         self._redshift = redshift
 
-        config = ConfigParser()
-        config.read(config_file)
-        self._omega_r0 = config.getfloat('all_cosmo_dict', 'omega_r0')
-        self._cmb_temp = config.getfloat('all_cosmo_dict', 'cmb_temp')
-        self._w0 = config.getfloat('all_cosmo_dict', 'w0')
-        self._wa = config.getfloat('all_cosmo_dict', 'wa')
+        self._omega_b0 = omega_b0
+        self._omega_m0 = omega_m0
+        self._h = h0
+        self._sigma_8 = sigma_8
+        self._n = n_scalar
 
-         
-        self._omega_m0 = cosmo_dict['omega_m0']
-        self._omega_b0 = cosmo_dict['omega_b0']
-        self._omega_l0 = cosmo_dict['omega_l0']
-        self._h = cosmo_dict['h']
-        self._sigma_8 = cosmo_dict['sigma_8']
-        self._n = cosmo_dict['n_scalar']
+        self._omega_l0 = 1. - self._omega_m0 
+        self._omega_r0 = 0.0
+        self._cmb_temp = 2.726
+        self._w0 = -1. 
+        self._wa = 0. 
         #For some reason H0 = 100 km/(s Mpc). 
         #However, h = 0.7 by using experiment. 
         #Therefore, H0/c = 100 Mpc^(-1). Since we need to 
         #write it in terms of experimatally varyfied 'h' 
         #then H0/c = 100 * h Mpc^(-1) = 70 Mpc^(-1)
-        self.H0 = 100.0 / (2.998 * 10**5)  # H0 / c in h Mpc^(-1)
+        self.H0 = 100.0/(2.998*10**5)  # H0 / c in h Mpc^(-1)
 
         self._flat = True
         self._open = False
         self._closed = False
 
-        self._k_min = config.getfloat('default_limits', 'k_min')
-        self._k_max = config.getfloat('default_limits', 'k_max')
-        self._global_precision = config.getfloat('default_precision', 'global_precision')
-        self._cosmo_precision = config.getfloat('default_precision', 'cosmo_precision')
-        self._divmax = config.getint('default_precision', 'divmax')
+        #See config.py for details
+        self.default_limits = {"k_min": 0.0001, "k_max": 10000.0,
+                          "mass_min": -1, "mass_max": -1}
+        self.default_precision = {"corr_npoints": 50, "corr_precision": 1.48e-6, "cosmo_npoints": 50, "cosmo_precision": 1.48e-8,"dNdz_precision": 1.48e-8,"halo_npoints": 50, "halo_precision": 1.48e-5,"halo_limit" : 100,"kernel_npoints": 50,"kernel_precision": 1.48e-6,"kernel_limit": 100, "kernel_bessel_limit": 8, "mass_npoints": 50,"mass_precision": 1.48e-8,"window_npoints": 100,"window_precision": 1.48e-6,"global_precision": 1.48e-32, "divmax":20, "epsabs":1e-1,"epsrel":1e-1}
 
+
+        self._k_min = self.default_limits['k_min']
+        self._k_max = self.default_limits['k_max']
         #Bunn & White 1997 Eq. 29 gives delta_H
         self.delta_H = (
-            1.94e-5 * self._omega_m0**(-0.785 - 0.05 * np.log(self._omega_m0))*
-            np.exp(-0.95 * (self._n - 1) - 0.169 * (self._n - 1)**2))
+            1.94e-5*self._omega_m0**(-0.785 - 0.05*np.log(self._omega_m0))*
+            np.exp(-0.95*(self._n - 1) - 0.169*(self._n - 1)**2))
 
         self._with_bao = with_bao
 
@@ -103,9 +100,9 @@ class CosmologyFunctions:
         #Total LOS comoving distance
         self._chi = integrate.romberg(
             self.E, 0.0, self._redshift, vec_func=True,
-            tol=self._global_precision,
-            rtol=self._cosmo_precision,
-            divmax=self._divmax)
+            tol=self.default_precision["global_precision"],
+            rtol=self.default_precision["cosmo_precision"],
+            divmax=self.default_precision["divmax"])
 
         #Linear growth at a=1, i.e. present time
         growth_scale_1 = self.growth_factor_eval(1.0)
@@ -214,9 +211,9 @@ class CosmologyFunctions:
         redshift = 1. / a - 1.
         growth = integrate.romberg(
             self._growth_integrand, 1e-4, a, vec_func=True,
-            tol=self._global_precision,
-            rtol=self._cosmo_precision,
-            divmax=self._divmax)
+            tol=self.default_precision["global_precision"],
+            rtol=self.default_precision["cosmo_precision"],
+            divmax=self.default_precision["divmax"])
         #growth *= 2.5*self._omega_m0*np.sqrt(self.E0(redshift))
         growth *= (2.5*self._omega_m0 / self.E(redshift))
         return growth
@@ -522,9 +519,9 @@ class CosmologyFunctions:
         sigma2 = integrate.romberg(
             self._sigma_integrand, np.log(k_min),
             np.log(k_max), args=(scale,), vec_func=True,
-            tol=self._global_precision,
-            rtol=self._cosmo_precision,
-            divmax=self._divmax)
+            tol=self.default_precision["global_precision"],
+            rtol=self.default_precision["cosmo_precision"],
+            divmax=self.default_precision["divmax"])
         sigma2 /= 2.0*np.pi*np.pi
 
         return np.sqrt(sigma2)
@@ -599,12 +596,9 @@ class CosmologyFunctions:
 
 
 if __name__=='__main__':
-    redshift = 0.0
+    redshift = 0.0231
     cosmo = CosmologyFunctions(redshift)
-<<<<<<< Updated upstream
-=======
     print('%.5f'%(cosmo.E(redshift)))
->>>>>>> Stashed changes
     print('%.2e'%cosmo.rho_bar())
     print(cosmo.omega_m())
     print('%.3e'%((cosmo.E(redshift)/cosmo._h) * cosmo.comoving_distance()**2/cosmo._h**2))
