@@ -1,0 +1,4 @@
+include pymouse/all_mouse_ids.csv
+include requirements.txt
+include README.md
+include __version__

@@ -1,0 +1,11 @@
+numpy
+pandas
+scipy
+shapely
+numba
+scikit-image
+
+#multiprocessing
+#matplotlib
+#cv2
+#scikit-learn
