@@ -1,5 +1,0 @@
-include halowlsz/source_distribution*
-include data/*
-include requirements.txt
-include README.md
-include __version__
